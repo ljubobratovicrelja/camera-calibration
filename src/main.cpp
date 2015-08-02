@@ -1,10 +1,17 @@
+#include <io.hpp>
+#include <gui.hpp>
 #include <image.hpp>
+#include <improc.hpp>
+#include <region.hpp>
+#include <contour.hpp>
+#include <draw.hpp>
+
 #include <iostream>
 
-int main()
-{
-	cv::image_array arr;
-	std::cout << arr.rows() << std::endl;
-	std::cout << "Hellow" << std::endl;
+#include "calibpattern.hpp"
+
+int main() {
+
+
 	return 0;
 }
