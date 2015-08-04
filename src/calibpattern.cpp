@@ -91,7 +91,7 @@ std::vector<cv::contouri> detect_lines(std::vector<cv::vec2r> &features, std::ve
 	for (unsigned i = 0; i < features.size(); i++) {
 		for (unsigned j = 0; j < nns[i].size(); j++) {
 			cv::contouri c = detect_line(i, nns[i][j], features, nns, angleThresh, magThresh, rows, cols);
-			if (!c.empty() and (c.point_length() == rows or c.point_length() == cols)) {
+			if (!c.empty()) {
 				lines.push_back(c);
 			}
 		}
@@ -123,16 +123,12 @@ cv::contouri detect_line(unsigned startIdx, unsigned queryIdx, std::vector<cv::v
 			auto queryVec = features[nn] - features[queryIdx];
 
 			real_t ang = RAD_TO_DEG(edgeVec.angle(queryVec));
-			real_t mag = (edgeVec.norm() < queryVec.norm()) ? (edgeVec.norm() / queryVec.norm()) : (queryVec.norm() / edgeVec.norm());
+			real_t mag = 1.0 - ((edgeVec.norm() < queryVec.norm()) ? (edgeVec.norm() / queryVec.norm()) : (queryVec.norm() / edgeVec.norm()));
 
-			mag = 1.0f - mag;  // mag error
-
-			if (ang < angleThreshold and mag < magThreshold) {
-				if (ang < bestAngle and mag < bestMagnitureError) {
-					bestId = nn;
-					bestAngle = ang;
-					bestMagnitureError = mag;
-				}
+			if (ang < angleThreshold && mag < magThreshold && ang < bestAngle && mag < bestMagnitureError) {
+				bestId = nn;
+				bestAngle = ang;
+				bestMagnitureError = mag;
 			}
 		}
 
@@ -149,25 +145,8 @@ cv::contouri detect_line(unsigned startIdx, unsigned queryIdx, std::vector<cv::v
 
 	if (line_size == rows or line_size == cols) {
 		return line;
-	}
-
-	unsigned max_size = std::max(rows, cols);
-	unsigned min_size = std::min(rows, cols);
-
-	cv::contouri trimmed_line;
-
-	if (line_size > max_size) {
-		for (unsigned i = 0; i < max_size; i++) {
-			trimmed_line.add_point(line[i]);
-		}
-		return trimmed_line;
-	} else if (line_size > min_size) {
-		for (unsigned i = 0; i < min_size; i++) {
-			trimmed_line.add_point(line[i]);
-		}
-		return trimmed_line;
 	} else {
-		return line;
+		return cv::contouri();
 	}
 }
 
@@ -339,11 +318,9 @@ std::vector<cv::vec2r> detect_pattern(const cv::matrixr &image, unsigned pattern
 	std::vector<cv::contouri> ctns;
 	std::vector<cv::vec2r> features;
 
-	auto h_c = cv::good_features(image, 5);
+	auto h_c = cv::good_features(image, 7);
 	cv::filter_non_maximum(h_c, 20);
-	features = cv::extract_features(h_c, patternCols*patternRows*2);
-
-	cv::matrix3r d_img;
+	features = cv::extract_features(h_c, patternCols*patternRows*1.5);
 
 	nns = find_nns(features, nnCount);
 	ctns = detect_lines(features, nns, angThresh, magThresh, patternRows, patternCols);
