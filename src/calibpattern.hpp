@@ -37,7 +37,7 @@
 #include <draw.hpp>
 
 std::vector<cv::vec2r> detect_pattern(const cv::matrixr &image, unsigned patternRows, unsigned patternCols, 
-		real_t angThresh = 15., real_t magThresh = 0.15, unsigned nnCount = 8);
+		real_t angThresh = 15., real_t magThresh = 0.15, unsigned nnCount = 10);
 
 std::vector<cv::vec2r> sub_pixel_detect(const std::vector<cv::vec2r> &corners, const cv::matrixr &src, 
 		const cv::vec2i &win = {10, 10}, real_t eps = 10e-6, unsigned maxIters = 100);
