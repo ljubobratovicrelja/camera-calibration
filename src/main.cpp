@@ -120,6 +120,19 @@ cv::matrixr calculate_homography() {
 	return H;
 }
 
+std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, real_t square_size) {
+	std::vector<cv::vec3r> obj_pts;
+	obj_pts.reserve(rows*cols);
+
+	for(unsigned i = 0; i < rows; ++i) {
+		for(unsigned j = 0; j < cols; ++j) {
+			obj_pts.push_back({static_cast<real_t>(j*square_size), static_cast<real_t>(i*square_size), static_cast<real_t>(0.)});
+		}
+	}
+
+	return obj_pts;
+}	
+
 int main() {
 
 	pattern_detection();
