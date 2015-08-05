@@ -39,16 +39,16 @@
 
 bool write_pattern_results(const std::vector<std::vector<cv::vec2r> > &patterns, const std::string &path) {
 
-	std::ofstream stream(path, std::fstream::out);
+	std::ofstream stream(path);
 
 	if (!stream.is_open()) {
 		return false;
 	}
 
 	for (unsigned i = 0; i < patterns.size(); ++i) {
-		stream << std::to_string(patterns[i][0][0]) << " " << std::to_string(patterns[i][0][1]);
+		stream << patterns[i][0];
 		for (unsigned j = 1; j < patterns[i].size(); ++j) {
-			stream << "," << std::to_string(patterns[i][j][0]) << " " << std::to_string(patterns[i][j][1]);
+			stream << "," << patterns[i][j];
 		}
 		stream << std::endl;
 	}
@@ -68,18 +68,15 @@ void pattern_detection() {
 
 		auto image = cv::imread("/home/relja/calibration/ground_truth/" + im_path, cv::REAL, 1);
 
-		if (image.rows() > 512) {
-			cv::resize(
-					}
 		unsigned p_rows = 6;
 		unsigned p_cols = 9;
 
 		cv::matrixr im_r = image, im_rb;
-		cv::matrixr gauss_k = cv::gauss({3, 3});
+		cv::matrixr gauss_k = cv::gauss({5, 5});
 
 		im_rb = cv::conv(im_r, gauss_k);
 
-		auto pattern = detect_pattern(im_rb, p_rows, p_cols, 15., 0.15, 10);
+		auto pattern = detect_pattern(im_rb, p_rows, p_cols, 18., 0.15, 12);
 
 		if (pattern.size() == p_rows*p_cols) {
 
@@ -116,6 +113,11 @@ void pattern_detection() {
 	} else {
 		std::cout << "Writing results to " << out_path << " failed!" << std::endl;
 	}
+}
+
+cv::matrixr calculate_homography() {
+	cv::matrixr H;
+	return H;
 }
 
 int main() {
