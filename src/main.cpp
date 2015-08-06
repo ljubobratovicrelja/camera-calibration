@@ -36,6 +36,7 @@
 #include <fstream>
 
 #include "calibpattern.hpp"
+#include "homography.hpp"
 
 bool write_pattern_results(const std::vector<std::vector<cv::vec2r> > &patterns, const std::string &path) {
 
@@ -135,7 +136,48 @@ std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, rea
 
 int main() {
 
-	pattern_detection();
+	//pattern_detection();
+	
+	std::vector<cv::vec2r> start = {{30., 10}, {12, 30}, {93, 12}, {12, 32}, {7, 5}, {12, 98}, {123, 543}};
+	auto end = start;
+
+	real_t x_offset = 10.0;
+	real_t y_offset = 0.;
+	for (auto &v : end) {
+		v += {x_offset, y_offset};
+	}
+
+	for (auto i : start) {
+		std::cout << i << " ";
+	}
+	std::cout << std::endl;
+	for (auto i : end) {
+		std::cout << i << " ";
+	}
+	std::cout << std::endl;
+
+	cv::matrixr H;
+
+	DLT(start, end, H);
+
+	std::cout << H << std::endl;
+
+	real_t err = 0.0;
+
+	err += fabs(1.0 - H(0, 0));
+	err += fabs(1.0 - H(1, 1));
+	err += fabs(1.0 - H(2, 2));
+
+	err += fabs(x_offset - H(0, 2));
+	err += fabs(y_offset - H(1, 2));
+
+	err += fabs(0.0 - H(0, 1));
+	err += fabs(0.0 - H(1, 0));
+
+	err += fabs(0.0 - H(2, 0));
+	err += fabs(0.0 - H(2, 1));
+
+	std::cout << "Homography calculation error: " << err << std::endl;
 	
 	return 0;
 }
