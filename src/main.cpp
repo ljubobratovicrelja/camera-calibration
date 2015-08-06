@@ -31,9 +31,13 @@
 #include <region.hpp>
 #include <contour.hpp>
 #include <draw.hpp>
+#include <linalg.hpp>
+#include <optimization.hpp>
 
 #include <iostream>
 #include <fstream>
+
+#include <minpack.h>
 
 #include "calibpattern.hpp"
 #include "homography.hpp"
@@ -134,15 +138,37 @@ std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, rea
 	return obj_pts;
 }	
 
+real_t calc_homography_error(const cv::matrixr &H, real_t x_offset, real_t y_offset) {
+
+	real_t err = 0.0;
+
+	err += fabs(1.0 - H(0, 0));
+	err += fabs(1.0 - H(1, 1));
+	err += fabs(1.0 - H(2, 2));
+
+	err += fabs(x_offset - H(0, 2));
+	err += fabs(y_offset - H(1, 2));
+
+	err += fabs(0.0 - H(0, 1));
+	err += fabs(0.0 - H(1, 0));
+
+	err += fabs(0.0 - H(2, 0));
+	err += fabs(0.0 - H(2, 1));
+
+	return err;
+}
+
 int main() {
 
 	//pattern_detection();
-	
-	std::vector<cv::vec2r> start = {{30., 10}, {12, 30}, {93, 12}, {12, 32}, {7, 5}, {12, 98}, {123, 543}};
-	auto end = start;
+	std::vector<cv::vec2r> start = {{30., 10}, {12, 30}, {93, 12}, {12, 32}, {7, 5}, {12, 98}, {123, 543}, {321, 324}, {43, 65}, {123, 43}};
+	std::vector<cv::vec2r> end;
 
 	real_t x_offset = 10.0;
 	real_t y_offset = 0.;
+	
+	end = start;
+
 	for (auto &v : end) {
 		v += {x_offset, y_offset};
 	}
@@ -160,24 +186,17 @@ int main() {
 
 	DLT(start, end, H);
 
-	std::cout << H << std::endl;
+	std::cout << "Initial homography:" << std::endl;
+	std::cout << H << std::endl << std::endl;
+	std::cout << "Initial homography calculation error: " << calc_homography_error(H, x_offset, y_offset) << std::endl;
 
-	real_t err = 0.0;
+	homography_optimization::source_pts = start;
+	homography_optimization::target_pts = end;
+	homography_optimization::evaluate(H, homography_optimization::reprojection_fcn);
 
-	err += fabs(1.0 - H(0, 0));
-	err += fabs(1.0 - H(1, 1));
-	err += fabs(1.0 - H(2, 2));
-
-	err += fabs(x_offset - H(0, 2));
-	err += fabs(y_offset - H(1, 2));
-
-	err += fabs(0.0 - H(0, 1));
-	err += fabs(0.0 - H(1, 0));
-
-	err += fabs(0.0 - H(2, 0));
-	err += fabs(0.0 - H(2, 1));
-
-	std::cout << "Homography calculation error: " << err << std::endl;
+	std::cout << "Homography after geometric error minimization:" << std::endl;
+	std::cout << H << std::endl << std::endl;
+	std::cout << "After geometric optimization, homography calculation error: " << calc_homography_error(H, x_offset, y_offset) << std::endl;
 	
 	return 0;
 }
