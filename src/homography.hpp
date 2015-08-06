@@ -34,20 +34,6 @@
 #include <matrix.hpp>
 #include <vector.hpp>
 
-
-/*
- * Estimate similarity transformation used in normalization
- * process needed for DLT algorithm for homography
- * estimation.
- */
-cv::matrixr DLT_pointSimilarityEstimation(const std::vector<cv::vec2r> &features);
-
-/*
- * Normalization of feature points using similarity transform,
- * estimated by DLT_pointSimilarityEstimation.
- */
-void DLT_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S);
-
 /*
  * Direct linear transformation algorithm for homography estimation.
  *
@@ -57,6 +43,11 @@ void DLT_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S);
  * 4. denormalize using H = inv(tgt_S)*H*src_S
  */
 void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+
+/*
+ * Solve homography using least squares method.
+ */
+void solveLeastSquaresHomography(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
 
 
 #endif /* end of include guard: HOMOGRAPHY_HPP_ERDRJZXL */
