@@ -33,6 +33,8 @@
 
 #include <matrix.hpp>
 #include <vector.hpp>
+#include <matfunc.hpp>
+#include <optimization.hpp>
 
 /*
  * Direct linear transformation algorithm for homography estimation.
@@ -48,6 +50,21 @@ void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tg
  * Solve homography using least squares method.
  */
 void solveLeastSquaresHomography(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+
+/*!
+ * @brief Optimization routine collection using Levenberg-Marquadt algorithm.
+ */
+struct homography_optimization {
+
+	static std::vector<cv::vec2r> source_pts; //!< Source points with which the initial homography was estimated.
+	static std::vector<cv::vec2r> target_pts; //!< Target points with which the initial homography was estimated.
+
+	//! Reprojection error function.
+	static void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag);
+
+	//! Evaluate optmization for given data set with given function.
+	static int evaluate(cv::matrixr &H, cv::optimization_fcn fcn, double tol = 10e-32);
+};
 
 
 #endif /* end of include guard: HOMOGRAPHY_HPP_ERDRJZXL */
