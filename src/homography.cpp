@@ -31,7 +31,7 @@
 
 
 cv::matrixr DLT_pointSimilarityEstimation(const std::vector<cv::vec2r> &features) {
-	cv::matrixr translate, scale, transform;
+	cv::matrixr transform = cv::matrixr::eye(3);
 
 	cv::vec2r centroid(0, 0);
 	cv::matrixr S;
@@ -41,18 +41,20 @@ cv::matrixr DLT_pointSimilarityEstimation(const std::vector<cv::vec2r> &features
 	}
 	centroid /= features.size();
 
-	double avgDistance = 0;
+	double sum_dist = 0;
 
 	for (auto feat : features) {
-		avgDistance += centroid.distance(feat);
+		sum_dist+= centroid.distance(feat);
 	}
+	centroid *= -1;
 
-	avgDistance /= features.size();
+	real_t scale_v = std::sqrt(2.) / (sum_dist / features.size());
 
-	//scale.scale(sqrt(2) / avgDistance);
-	//translate.translate(centroid * -1);
-
-	transform = scale * translate;
+	transform(0, 0) = scale_v;
+	transform(1, 1) = scale_v;
+	transform(0, 2) = centroid[0];
+	transform(1, 2) = centroid[1];
+	transform(2, 2) = centroid[2];
 
 	return transform;
 }
