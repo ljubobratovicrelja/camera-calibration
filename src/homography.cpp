@@ -30,7 +30,8 @@
 #include <math.hpp>
 
 
-cv::matrixr DLT_pointSimilarityEstimation(const std::vector<cv::vec2r> &features) {
+// Similarity estimation for normalization process.
+cv::matrixr homography_dlt_sim_estimation(const std::vector<cv::vec2r> &features) {
 	cv::matrixr transform = cv::matrixr::eye(3);
 
 	cv::vec2r centroid(0, 0);
@@ -58,7 +59,7 @@ cv::matrixr DLT_pointSimilarityEstimation(const std::vector<cv::vec2r> &features
 	return transform;
 }
 
-void DLT_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S) {
+void homography_dlt_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S) {
 	ASSERT(S && S.rows() == 3 && S.cols() == 3);
 	cv::matrixr x(3, 1), xp(3, 1);
 	for (unsigned i = 0; i < features.size(); ++i) {
@@ -71,7 +72,7 @@ void DLT_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S) {
 	}
 }
 
-void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
+void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
 	ASSERT(src_pts.size() >= 4 && src_pts.size() == tgt_pts.size());
 
 	// 0. Prepare data;
@@ -79,9 +80,9 @@ void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tg
 	cv::matrixr A = cv::matrixr::zeros(2 * src_pts.size(), 9);
 
 	// 1. Perform normalization;
-	srcS = DLT_pointSimilarityEstimation(src_pts);
+	srcS = homography_dlt_sim_estimation(src_pts);
 	std::cout << srcS << std::endl;
-	tgtS = DLT_pointSimilarityEstimation(tgt_pts);
+	tgtS = homography_dlt_sim_estimation(tgt_pts);
 
 	auto src_n = src_pts; // source normalized points
 	auto tgt_n = tgt_pts; // target normalized points
@@ -89,8 +90,8 @@ void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tg
 	invTgtS = tgtS.clone();
 	invert(invTgtS);
 
-	DLT_normalize(src_n, srcS);
-	DLT_normalize(tgt_n, tgtS);
+	homography_dlt_normalize(src_n, srcS);
+	homography_dlt_normalize(tgt_n, tgtS);
 
 	// 2. Pack matrix A;
 	for (unsigned i = 0; i < src_pts.size(); ++i) {
@@ -158,7 +159,7 @@ void packHomographyAB(const std::vector<cv::vec2r> &src_pts, const std::vector<c
 /*
  * Solve homography using least squares method.
  */
-void solveLeastSquaresHomography(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
+void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
 
 	cv::matrixr A, B;
 	packHomographyAB(src_pts, tgt_pts, A, B);
