@@ -37,19 +37,14 @@
 #include <optimization.hpp>
 
 /*
- * Direct linear transformation algorithm for homography estimation.
- *
- * 1. Normalize
- * 2. Pack A
- * 3. Set null space to be H, then reshape to 3x3
- * 4. denormalize using H = inv(tgt_S)*H*src_S
+ * Normalized Direct linear transformation algorithm for homography estimation.
  */
-void DLT(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
 
 /*
  * Solve homography using least squares method.
  */
-void solveLeastSquaresHomography(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
 
 /*!
  * @brief Optimization routine collection using Levenberg-Marquadt algorithm.
