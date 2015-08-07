@@ -184,7 +184,7 @@ int main() {
 
 	cv::matrixr H;
 
-	DLT(start, end, H);
+	homography_least_squares(start, end, H);
 
 	std::cout << "Initial homography:" << std::endl;
 	std::cout << H << std::endl << std::endl;
