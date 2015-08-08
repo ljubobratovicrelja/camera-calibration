@@ -36,15 +36,21 @@
 #include <matfunc.hpp>
 #include <optimization.hpp>
 
+
+/*
+ * Solve homography using non-normalized 8-point algorithm.
+ */
+void homography_solve(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, cv::matrixr &H);
+
 /*
  * Normalized Direct linear transformation algorithm for homography estimation.
  */
-void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H);
 
 /*
  * Solve homography using least squares method.
  */
-void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H);
+void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H);
 
 /*!
  * @brief Optimization routine collection using Levenberg-Marquadt algorithm.
@@ -52,7 +58,7 @@ void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::
 struct homography_optimization {
 
 	static std::vector<cv::vec2r> source_pts; //!< Source points with which the initial homography was estimated.
-	static std::vector<cv::vec2r> target_pts; //!< Target points with which the initial homography was estimated.
+	static std::vector<cv::vec3r> target_pts; //!< Target points with which the initial homography was estimated.
 
 	//! Reprojection error function.
 	static void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag);
