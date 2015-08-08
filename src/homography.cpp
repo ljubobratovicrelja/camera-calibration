@@ -42,7 +42,7 @@ cv::matrixr homography_dlt_sim_estimation(const std::vector<cv::vec2r> &features
 	}
 	centroid /= features.size();
 
-	double sum_dist = 0;
+	real_t sum_dist = 0;
 
 	for (auto feat : features) {
 		sum_dist+= centroid.distance(feat);
@@ -176,11 +176,42 @@ void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::
 	std::copy(_H.begin(), _H.end(), H.begin());
 	H.reshape(3, 3);
 	H(2, 2) = 1;
+}
 
+void homography_zhang(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, cv::matrixr &H) {
+	auto n = image_points.size();
+	ASSERT(model_points.size() == n);
+	cv::matrixr L = cv::matrixr::zeros(2*n, 9);
+
+	for(unsigned k = 0; k < n; k++) {
+
+		real_t X=model_points[k][0];  /* X coord of model point k */
+		real_t Y=model_points[k][1];  /* Y coord of model point k */
+		real_t W=model_points[k][2];  /* W coord of model point k */
+		real_t u=image_points[k][0];  /* u coord of image point k */
+		real_t v=image_points[k][1];  /* v coord of image point k */
+
+		int i = 2*k;                 /* line number in matrix L  */
+
+		L(i,0) =    X;	L(i, 1) =    Y;	L(i, 2) =    W;
+		L(i, 3) =    0;	L(i, 4) =    0;	L(i, 5) =    0;
+		L(i, 6) = -u*X; L(i, 7) = -u*Y;	L(i, 8) = -u*W;
+
+		i++;
+
+		L(i, 0) =    0; L(i, 1) =    0; L(i, 2) =    0;
+		L(i, 3) =    X; L(i, 4) =    Y; L(i, 5) =    W;
+		L(i, 6) = -v*X; L(i, 7) = -v*Y; L(i, 8) = -v*W;
+	}
+
+	cv::null_solve(L, H);
+	H.reshape(3, 3);
+	
+	H *= 1. / H(2, 2);
 }
 
 std::vector<cv::vec2r> homography_optimization::source_pts;
-std::vector<cv::vec2r> homography_optimization::target_pts;
+std::vector<cv::vec3r> homography_optimization::target_pts;
 
 void homography_optimization::reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
 	// TODO: implement inline cross product without convertion to matrices.
@@ -192,21 +223,25 @@ void homography_optimization::reprojection_fcn(int *m, int *n, double* x, double
 		return;
 
 	// calculate m_projected
-	cv::matrixd _H(3, 3, x); // TODO: check if copies 
+	cv::matrixd _H(3, 3, x); // TODO: check if copies
 	cv::matrixd ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
 
 	for (int i = 0; i < *m; ++i) {
-		ptn(0, 0) = source_pts[i][0];
-		ptn(1, 0) = source_pts[i][1];
-		ptn(2, 0) = 1.;
+		ptn(0, 0) = target_pts[i][0]; // model point
+		ptn(1, 0) = target_pts[i][1];
+		ptn(2, 0) = target_pts[i][2];
 
-		p_ptn(0, 0) = target_pts[i][0];
-		p_ptn(1, 0) = target_pts[i][1];
+		p_ptn(0, 0) = source_pts[i][0]; // photo projection point
+		p_ptn(1, 0) = source_pts[i][1];
 		p_ptn(2, 0) = 1.;
 
 		cv::cross( _H, ptn, res_ptn);
 
-		fvec[i] = cv::distance(res_ptn, p_ptn, cv::Norm::L2);
+		res_ptn(0, 0) /= res_ptn(2, 0);
+		res_ptn(1, 0) /= res_ptn(2, 0);
+		res_ptn(2, 0) = 1.;
+
+		fvec[i] = cv::distance(p_ptn, res_ptn, cv::Norm::L2);
 	}
 }
 
@@ -233,4 +268,5 @@ int homography_optimization::evaluate(cv::matrixr &H, cv::optimization_fcn fcn, 
 
 	return info;
 }
+
 
