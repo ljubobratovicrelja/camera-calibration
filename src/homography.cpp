@@ -30,8 +30,41 @@
 #include <math.hpp>
 
 
+void homography_solve(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, cv::matrixr &H) {
+	auto n = image_points.size();
+	ASSERT(model_points.size() == n);
+	cv::matrixr L = cv::matrixr::zeros(2*n, 9);
+
+	for(unsigned k = 0; k < n; k++) {
+
+		real_t X=model_points[k][0];  /* X coord of model point k */
+		real_t Y=model_points[k][1];  /* Y coord of model point k */
+		real_t W=model_points[k][2];  /* W coord of model point k */
+		real_t u=image_points[k][0];  /* u coord of image point k */
+		real_t v=image_points[k][1];  /* v coord of image point k */
+
+		int i = 2*k;                 /* line number in matrix L  */
+
+		L(i,0) =    X;	L(i, 1) =    Y;	L(i, 2) =    W;
+		L(i, 3) =    0;	L(i, 4) =    0;	L(i, 5) =    0;
+		L(i, 6) = -u*X; L(i, 7) = -u*Y;	L(i, 8) = -u*W;
+
+		i++;
+
+		L(i, 0) =    0; L(i, 1) =    0; L(i, 2) =    0;
+		L(i, 3) =    X; L(i, 4) =    Y; L(i, 5) =    W;
+		L(i, 6) = -v*X; L(i, 7) = -v*Y; L(i, 8) = -v*W;
+	}
+
+	cv::null_solve(L, H);
+	H.reshape(3, 3);
+	
+	H *= 1. / H(2, 2);
+}
+
 // Similarity estimation for normalization process.
-cv::matrixr homography_dlt_sim_estimation(const std::vector<cv::vec2r> &features) {
+template<size_t _size>
+cv::matrixr homography_dlt_sim_estimation(const std::vector<cv::vectorx<real_t, _size> > &features) {
 	cv::matrixr transform = cv::matrixr::eye(3);
 
 	cv::vec2r centroid(0, 0);
@@ -59,20 +92,23 @@ cv::matrixr homography_dlt_sim_estimation(const std::vector<cv::vec2r> &features
 	return transform;
 }
 
-void homography_dlt_normalize(std::vector<cv::vec2r> &features, const cv::matrixr &S) {
+template<size_t _size>
+void homography_dlt_normalize(std::vector<cv::vectorx<real_t, _size> > &features, const cv::matrixr &S) {
 	ASSERT(S && S.rows() == 3 && S.cols() == 3);
 	cv::matrixr x(3, 1), xp(3, 1);
 	for (unsigned i = 0; i < features.size(); ++i) {
 		x(0, 0) = features[i][0];
 		x(1, 0) = features[i][1];
-		x(2, 0) = 1;
+		x(2, 0) = (_size == 3) ? features[i][2] : 1.;
 		cross(S, x, xp);
-		features[i][0] = xp(0, 0);
-		features[i][1] = xp(1, 0);
+		features[i][0] = xp(0, 0) / xp(2, 0);
+		features[i][1] = xp(1, 0) / xp(2, 0);
+		if(_size == 3)
+			features[i][2] = 1.;
 	}
 }
 
-void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
+void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H) {
 	ASSERT(src_pts.size() >= 4 && src_pts.size() == tgt_pts.size());
 
 	// 0. Prepare data;
@@ -80,9 +116,8 @@ void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv:
 	cv::matrixr A = cv::matrixr::zeros(2 * src_pts.size(), 9);
 
 	// 1. Perform normalization;
-	srcS = homography_dlt_sim_estimation(src_pts);
-	std::cout << srcS << std::endl;
-	tgtS = homography_dlt_sim_estimation(tgt_pts);
+	srcS = homography_dlt_sim_estimation<2>(src_pts);
+	tgtS = homography_dlt_sim_estimation<3>(tgt_pts);
 
 	auto src_n = src_pts; // source normalized points
 	auto tgt_n = tgt_pts; // target normalized points
@@ -90,14 +125,11 @@ void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv:
 	invTgtS = tgtS.clone();
 	invert(invTgtS);
 
-	homography_dlt_normalize(src_n, srcS);
-	homography_dlt_normalize(tgt_n, tgtS);
+	homography_dlt_normalize<2>(src_n, srcS);
+	homography_dlt_normalize<3>(tgt_n, tgtS);
 
 	// 2. Pack matrix A;
 	for (unsigned i = 0; i < src_pts.size(); ++i) {
-		// [-x -y -1 0 0 0 ux uy u]
-		// [0 0 0 -x -y -1 vx vy v]
-
 		A(i * 2 + 0, 0) = -1 * src_n[i][0];
 		A(i * 2 + 0, 1) = -1 * src_n[i][1];
 		A(i * 2 + 0, 2) = -1;
@@ -125,7 +157,7 @@ void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv:
 /*
  * Pack homography matrices A and B by the form used for least squares solving.
  */
-void packHomographyAB(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &A, cv::matrixr &B) {
+void pack_ab(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &A, cv::matrixr &B) {
 
 	ASSERT(src_pts.size() && src_pts.size() == tgt_pts.size());
 
@@ -159,10 +191,10 @@ void packHomographyAB(const std::vector<cv::vec2r> &src_pts, const std::vector<c
 /*
  * Solve homography using least squares method.
  */
-void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec2r> &tgt_pts, cv::matrixr &H) {
+void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H) {
 
 	cv::matrixr A, B;
-	packHomographyAB(src_pts, tgt_pts, A, B);
+	pack_ab(src_pts, tgt_pts, A, B);
 	cv::matrixr _H(8, 1);
 
 	cv::matrixr At = A.transposed();
@@ -176,38 +208,6 @@ void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::
 	std::copy(_H.begin(), _H.end(), H.begin());
 	H.reshape(3, 3);
 	H(2, 2) = 1;
-}
-
-void homography_zhang(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, cv::matrixr &H) {
-	auto n = image_points.size();
-	ASSERT(model_points.size() == n);
-	cv::matrixr L = cv::matrixr::zeros(2*n, 9);
-
-	for(unsigned k = 0; k < n; k++) {
-
-		real_t X=model_points[k][0];  /* X coord of model point k */
-		real_t Y=model_points[k][1];  /* Y coord of model point k */
-		real_t W=model_points[k][2];  /* W coord of model point k */
-		real_t u=image_points[k][0];  /* u coord of image point k */
-		real_t v=image_points[k][1];  /* v coord of image point k */
-
-		int i = 2*k;                 /* line number in matrix L  */
-
-		L(i,0) =    X;	L(i, 1) =    Y;	L(i, 2) =    W;
-		L(i, 3) =    0;	L(i, 4) =    0;	L(i, 5) =    0;
-		L(i, 6) = -u*X; L(i, 7) = -u*Y;	L(i, 8) = -u*W;
-
-		i++;
-
-		L(i, 0) =    0; L(i, 1) =    0; L(i, 2) =    0;
-		L(i, 3) =    X; L(i, 4) =    Y; L(i, 5) =    W;
-		L(i, 6) = -v*X; L(i, 7) = -v*Y; L(i, 8) = -v*W;
-	}
-
-	cv::null_solve(L, H);
-	H.reshape(3, 3);
-	
-	H *= 1. / H(2, 2);
 }
 
 std::vector<cv::vec2r> homography_optimization::source_pts;
