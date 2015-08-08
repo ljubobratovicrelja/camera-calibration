@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(OUT_EXEC "camera_calibration")
 file(GLOB SRC_FILES "./src/*.cpp")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -fopenmp -w")
+set(CMAKE_CXX_FLAGS "-std=c++11 -fopenmp -w -DCV_REAL_TYPE_DOUBLE")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 
