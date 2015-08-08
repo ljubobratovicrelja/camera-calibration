@@ -143,6 +143,7 @@ cv::matrixr denormalize_intrinsics(cv::matrixr &A_p, const cv::matrixr &N) {
 	cv::invert(N_inv);
 	return (N_inv*A_p);
 }
+
 void pattern_detection() {
 
 	std::string calib_patterns[] = {"1.png", "2.png", "3.png", "4.png", "5.png", "6.png", "7.png", "8.png", "9.png", "10.png"};
@@ -205,25 +206,68 @@ void pattern_detection() {
 	}
 }
 
-cv::matrixr calculate_homography() {
-	cv::matrixr H;
-	return H;
+bool read_zhang_data(const std::string &folderpath, std::vector<std::vector<cv::vec2r> > &image_points,
+                     std::vector<cv::vec3r > &model_points)
+{
+	int i,n=0;
+	FILE* fpm  = fopen((folderpath + "/model.txt").c_str(),"rt");
+	FILE* fpi1 = fopen((folderpath + "/data1.txt").c_str(),"rt");
+	FILE* fpi2 = fopen((folderpath + "/data2.txt").c_str(),"rt");
+	FILE* fpi3 = fopen((folderpath + "/data3.txt").c_str(),"rt");
+	FILE* fpi4 = fopen((folderpath + "/data4.txt").c_str(),"rt");
+	FILE* fpi5 = fopen((folderpath + "/data5.txt").c_str(),"rt");
+
+	if (fpi1==NULL ||fpi2==NULL ||fpi3==NULL ||fpi4==NULL ||fpi5==NULL || fpm==NULL) {
+		printf("Arq error\n");
+		return 1;
+	}
+
+	for (n=0; !feof(fpm); n++ ) {
+		double x, y;
+		fscanf(fpm,"%lf %lf ",&x,&y);
+		model_points.push_back(cv::vec3r(x, y, 1.));
+	}
+
+	fclose(fpm);
+
+	image_points.resize(5);
+	for (i=0; i<n; i++ ) {
+		double x, y;
+		fscanf(fpi1,"%lf %lf ",&x,&y);
+		image_points[0].push_back(cv::vec2r(x, y));
+		fscanf(fpi2,"%lf %lf ",&x,&y);
+		image_points[1].push_back(cv::vec2r(x, y));
+		fscanf(fpi3,"%lf %lf ",&x,&y);
+		image_points[2].push_back(cv::vec2r(x, y));
+		fscanf(fpi4,"%lf %lf ",&x,&y);
+		image_points[3].push_back(cv::vec2r(x, y));
+		fscanf(fpi5,"%lf %lf ",&x,&y);
+		image_points[4].push_back(cv::vec2r(x, y));
+	}
+
+	fclose(fpi1);
+	fclose(fpi2);
+	fclose(fpi3);
+	fclose(fpi4);
+	fclose(fpi5);
+
+	return true;
 }
 
-std::vector<cv::vec2r> calculate_object_points(unsigned rows, unsigned cols, real_t square_size) {
-	std::vector<cv::vec2r> obj_pts;
+std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, real_t square_size) {
+	std::vector<cv::vec3r> obj_pts;
 	obj_pts.reserve(rows*cols);
 
 	for(unsigned i = 0; i < rows; ++i) {
 		for(unsigned j = 0; j < cols; ++j) {
-			obj_pts.push_back({static_cast<real_t>(j*square_size), static_cast<real_t>(i*square_size)});
+			obj_pts.push_back({static_cast<real_t>(j*square_size), static_cast<real_t>(i*square_size), 1.});
 		}
 	}
 
 	return obj_pts;
 }
 
-real_t calc_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec2r> &target_pts) {
+real_t calc_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec3r> &target_pts) {
 
 	ASSERT(source_pts.size() == target_pts.size() && H && H.rows() == 3 && H.cols() == 3);
 
@@ -240,9 +284,13 @@ real_t calc_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r
 
 		p_ptn(0, 0) = target_pts[i][0];
 		p_ptn(1, 0) = target_pts[i][1];
-		p_ptn(2, 0) = 1.;
+		p_ptn(2, 0) = target_pts[i][2];
 
 		cv::cross( H, ptn, res_ptn);
+
+		res_ptn(0, 0) /= res_ptn(2, 0);
+		res_ptn(1, 0) /= res_ptn(2, 0);
+		res_ptn(2, 0) = 1;
 
 		err += pow(cv::distance(res_ptn, p_ptn, cv::Norm::L2), 2);
 	}
@@ -268,9 +316,10 @@ cv::matrixr pack_v(const std::vector<cv::matrixr> &Hs) {
 		auto v12 = get_vij(Hs[i], 0, 1);
 		auto v11 = get_vij(Hs[i], 0, 0);
 		auto v22 = get_vij(Hs[i], 1, 1);
+		auto v11_v22 = v11 - v22;
 
-		std::copy(h_r_1.begin(), h_r_1.end(), v12.begin());
-		std::copy(h_r_2.begin(), h_r_2.end(), (v11 - v22).begin());
+		std::copy(v12.begin(),v12.end(),h_r_1.begin());
+		std::copy(v11_v22.begin(), v11_v22.end(), h_r_2.begin());
 	}
 
 	return v;
@@ -290,7 +339,7 @@ cv::vectorr solve_b(const cv::matrixr &V) {
 		}
 	}
 
-	return Vt.col(smallest_i);
+	return Vt.transposed().col(smallest_i);
 }
 
 cv::matrixr get_B_from_b(const cv::vectorr &b) {
@@ -310,7 +359,7 @@ bool extract_intrinsics_from_B(const cv::matrixr &B, real_t &u0, real_t &v0,
 		return false;
 	}
 
-	v0 = (B(0, 1)*B(0, 2) - B(0, 0)*B(1, 2)) / (B(0, 2)*B(1, 1) - B(0, 1)*B(0, 1));
+	v0 = (B(0, 1)*B(0, 2) - B(0, 0)*B(1, 2)) / (B(0, 0)*B(1, 1) - B(0, 1)*B(0, 1));
 	lambda = B(2, 2) - (B(0, 1)*B(0, 1) + v0*(B(0, 1)*B(0, 2) - B(0, 0)*B(1, 2))) / B(0, 0);
 	auto l = (lambda / B(0, 0));
 	if (l < .0) {
@@ -350,32 +399,37 @@ int main() {
 	//pattern_detection();
 	//return 1;
 
-	unsigned im_w, im_h;
+	unsigned im_w = 640, im_h = 480;
 
-	auto patterns = read_pattern_results("/home/relja/git/camera_calibration/pattern.txt", im_w, im_h);
+	std::vector<std::vector<cv::vec2r>> image_points;
+	std::vector<cv::vec3r> model_points;
 
-	auto N = normalize_image_points(patterns, im_w, im_h);
-	auto model_points = calculate_object_points(6, 9, 1.0);
+	read_zhang_data("/home/relja/git/camera_calibration/calib_data/zhang_data", image_points, model_points);
 
-	auto patterns_count = patterns.size();
+	auto N = normalize_image_points(image_points, im_w, im_h);
 
-	std::vector<cv::matrixr> Hs(patterns_count);
+	auto image_points_count = image_points.size();
 
-	for (unsigned i = 0; i < patterns_count; ++i) {
-		ASSERT(patterns[i].size() == model_points.size());
+	std::vector<cv::matrixr> Hs(image_points_count);
+
+	for (unsigned i = 0; i < image_points_count; ++i) {
+		ASSERT(image_points[i].size() == model_points.size());
 
 		auto &H = Hs[i];
 
-		homography_least_squares(patterns[i], model_points, H);
+		homography_least_squares(image_points[i], model_points, H);
 
-		homography_optimization::source_pts = patterns[i];
+		homography_optimization::source_pts = image_points[i];
 		homography_optimization::target_pts = model_points;
 		homography_optimization::evaluate(H, homography_optimization::reprojection_fcn);
 
-		std::cout << "After geometric optimization, homography calculation error: " << calc_reprojection_error(H, patterns[i], model_points) << std::endl;
+		H *= 1. / H(2, 2);
+
+		std::cout << "Homography " << i << std::endl << H << std::endl;
 	}
 
 	auto V = pack_v(Hs);
+	std::cout << "V:\n" << V << std::endl;
 	auto b = solve_b(V);
 	auto B = get_B_from_b(b);
 
@@ -390,6 +444,7 @@ int main() {
 		auto A = denormalize_intrinsics(A_p, N);
 		std::cout << "Denormalized intrinsics matrix A:" << std::endl;
 		std::cout << A << std::endl;
+		
 	} else {
 		std::cout << "Failure calculating intrinsic parameters." << std::endl;
 		return EXIT_FAILURE;
@@ -400,6 +455,7 @@ int main() {
 
 	return EXIT_SUCCESS;
 }
+
 
 
 
