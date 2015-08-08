@@ -58,13 +58,15 @@ std::vector<std::string> split_string(std::string s, const std::string &delimite
 	return tokens;
 }
 
-bool write_pattern_results(const std::vector<std::vector<cv::vec2r> > &patterns, const char *path) {
+bool write_pattern_results(const std::vector<std::vector<cv::vec2r> > &patterns, unsigned im_w, unsigned im_h, const char *path) {
 
 	std::ofstream stream(path);
 
 	if (!stream.is_open()) {
 		return false;
 	}
+
+	stream << im_w << " " << im_h << std::endl;
 
 	for (unsigned i = 0; i < patterns.size(); ++i) {
 		stream << patterns[i][0];
@@ -79,7 +81,7 @@ bool write_pattern_results(const std::vector<std::vector<cv::vec2r> > &patterns,
 	return true;
 }
 
-std::vector<std::vector<cv::vec2r> > read_pattern_results(const char *path) {
+std::vector<std::vector<cv::vec2r> > read_pattern_results(const char *path, unsigned &im_w, unsigned &im_h) {
 	std::vector<std::vector<cv::vec2r> > patterns;
 
 	std::ifstream stream(path);
@@ -89,6 +91,16 @@ std::vector<std::vector<cv::vec2r> > read_pattern_results(const char *path) {
 	}
 
 	std::string line;
+	if(std::getline(stream, line)) {
+		auto l = split_string(line, " ");
+		if (l.size() == 2) {
+			im_w = std::atoi(l[0].c_str());
+			im_h = std::atoi(l[1].c_str());
+		}
+	} else {
+		im_w = im_h = 0;
+		return patterns;
+	}
 	while(std::getline(stream, line)) {
 		patterns.push_back(std::vector<cv::vec2r>());
 		auto &p = patterns.back();
@@ -105,15 +117,46 @@ std::vector<std::vector<cv::vec2r> > read_pattern_results(const char *path) {
 	return patterns;
 }
 
+cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> > &patterns, unsigned w, unsigned h) {
+
+	real_t sx = 2. / w;
+	real_t sy = 2. / h;
+	real_t x0 = w / 2.;
+	real_t y0 = h / 2.;
+
+	for(unsigned i = 0; i < patterns.size(); ++i) {
+		for(unsigned j = 0; j < patterns[i].size(); ++j) {
+			patterns[i][j][0] = sx*(patterns[i][j][0]-x0);
+			patterns[i][j][1] = sy*(patterns[i][j][1]-y0);
+		}
+	}
+
+	return {
+		{sx, 0.,  -sx*x0},
+		{0., sy, -sy*y0},
+		{0., 0., 1.}
+	};
+}
+
+cv::matrixr denormalize_intrinsics(cv::matrixr &A_p, const cv::matrixr &N) {
+	auto N_inv = N.clone();
+	cv::invert(N_inv);
+	return (N_inv*A_p);
+}
 void pattern_detection() {
 
-	std::string calib_patterns[] = {"1.png", "2.png", "3.png", "4.png", "5.png", "6.png", "7.png"};
+	std::string calib_patterns[] = {"1.png", "2.png", "3.png", "4.png", "5.png", "6.png", "7.png", "8.png", "9.png", "10.png"};
 
 	std::vector<std::vector<cv::vec2r> > patterns;
 
+	unsigned im_w = 0, im_h = 0;
+
 	for (auto im_path : calib_patterns) {
 
-		auto image = cv::imread("/home/relja/calibration/ground_truth/" + im_path, cv::REAL, 1);
+		cv::matrixr image = cv::imread("/home/relja/calibration/ground_truth/" + im_path, cv::REAL, 1);
+
+		im_w = image.cols();
+		im_h = image.rows();
 
 		unsigned p_rows = 6;
 		unsigned p_cols = 9;
@@ -155,7 +198,7 @@ void pattern_detection() {
 	std::cout << "Where to write results?" << std::endl;
 	std::cin >> out_path;
 
-	if (write_pattern_results(patterns, out_path.c_str())) {
+	if (write_pattern_results(patterns, im_w, im_h, out_path.c_str())) {
 		std::cout << "Writing results to " << out_path << " successfull!" << std::endl;
 	} else {
 		std::cout << "Writing results to " << out_path << " failed!" << std::endl;
@@ -235,25 +278,83 @@ cv::matrixr pack_v(const std::vector<cv::matrixr> &Hs) {
 
 cv::vectorr solve_b(const cv::matrixr &V) {
 
-	cv::matrixr VtV;
-	cv::cross(V.transposed(), V, VtV);
+	cv::matrixr U, S, Vt;
+	cv::svd_decomp(V, U, S, Vt);
 
-	cv::vectorr we, wi;
-	cv::matrixr vl, vr;
+	real_t smallest_sv = std::numeric_limits<real_t>::max();
+	unsigned smallest_i = 0;
+	for (unsigned i = 0; i < S.rows(); ++i) {
+		if (S(i, i) < smallest_sv) {
+			smallest_sv = S(i, i);
+			smallest_i = i;
+		}
+	}
 
-	cv::geev(VtV, we, wi, vl, vr);
-	std::vector<cv::vectorr> eig_vecs;
+	return Vt.col(smallest_i);
+}
 
-	cv::decompose_eigenvector_matrix(vr, eig_vecs, true);
+cv::matrixr get_B_from_b(const cv::vectorr &b) {
+	return {
+		{b[0], b[1], b[3]},
+		{b[1], b[2], b[4]},
+		{b[3], b[4], b[5]}
+	};
+}
 
-	return eig_vecs[std::distance(we.begin(), we.min())];
+bool extract_intrinsics_from_B(const cv::matrixr &B, real_t &u0, real_t &v0,
+                               real_t &lambda, real_t &alpha, real_t &beta, real_t &gama) {
+	auto den = B(0, 0) * B(2, 2) - B(0, 1)*B(0, 1);
+
+	if (fabs(den) < 1e-8) {
+		std::cout << "Den < 1e-8" << std::endl;
+		return false;
+	}
+
+	v0 = (B(0, 1)*B(0, 2) - B(0, 0)*B(1, 2)) / (B(0, 2)*B(1, 1) - B(0, 1)*B(0, 1));
+	lambda = B(2, 2) - (B(0, 1)*B(0, 1) + v0*(B(0, 1)*B(0, 2) - B(0, 0)*B(1, 2))) / B(0, 0);
+	auto l = (lambda / B(0, 0));
+	if (l < .0) {
+		std::cout << "L < 0: " << l << std::endl;
+		return false;
+	}
+	alpha = sqrt(l);
+	auto b =(lambda*B(0, 0))/(B(0, 0)*B(1, 1) - B(0, 1)*B(0, 1));
+	if (b < .0) {
+		std::cout << "beta < 0: " << b << std::endl;
+		return false;
+	}
+	beta = sqrt(b);
+	gama = (-1*B(0, 1)*(alpha*alpha)*beta)/lambda;
+	u0 = (gama*v0)/alpha - (B(0, 2)*(alpha*alpha))/lambda;
+
+	return true;
+}
+
+cv::matrixr get_intrinsic_mat(const cv::matrixr &B) {
+
+	real_t u0, v0, a, b, c, lambda;
+	if (extract_intrinsics_from_B(B, u0, v0, lambda, a, b, c)) {
+		return {
+			{a, c, u0},
+			{0., b, v0},
+			{0., 0., 1.}
+		};
+	} else {
+		std::cerr << "Failure calculation A'" << std::endl;
+		return cv::matrixr();
+	}
 }
 
 int main() {
 
 	//pattern_detection();
-	//
-	auto patterns = read_pattern_results("/home/relja/git/camera_calibration/pattern.txt");
+	//return 1;
+
+	unsigned im_w, im_h;
+
+	auto patterns = read_pattern_results("/home/relja/git/camera_calibration/pattern.txt", im_w, im_h);
+
+	auto N = normalize_image_points(patterns, im_w, im_h);
 	auto model_points = calculate_object_points(6, 9, 1.0);
 
 	auto patterns_count = patterns.size();
@@ -267,27 +368,41 @@ int main() {
 
 		homography_least_squares(patterns[i], model_points, H);
 
-		std::cout << "Initial homography:" << std::endl;
-		std::cout << H << std::endl << std::endl;
-		std::cout << "Initial homography calculation error: " << calc_reprojection_error(H, patterns[i], model_points) << std::endl;
-
 		homography_optimization::source_pts = patterns[i];
 		homography_optimization::target_pts = model_points;
 		homography_optimization::evaluate(H, homography_optimization::reprojection_fcn);
 
-		std::cout << "Homography after geometric error minimization:" << std::endl;
-		std::cout << H << std::endl;
 		std::cout << "After geometric optimization, homography calculation error: " << calc_reprojection_error(H, patterns[i], model_points) << std::endl;
 	}
 
 	auto V = pack_v(Hs);
 	auto b = solve_b(V);
+	auto B = get_B_from_b(b);
 
-	std::cout << "V matrix:" << std::endl;
-	std::cout << V << std::endl;
-	std::cout << "b vector:" << std::endl;
-	std::cout << b << std::endl;
-	return 0;
+	std::cout << "B matrix:" << std::endl;
+	std::cout << B << std::endl;
+
+	auto A_p = get_intrinsic_mat(B);
+
+	if (A_p) {
+		std::cout << "Intrinsics matrix A':" << std::endl;
+		std::cout << A_p << std::endl;
+		auto A = denormalize_intrinsics(A_p, N);
+		std::cout << "Denormalized intrinsics matrix A:" << std::endl;
+		std::cout << A << std::endl;
+	} else {
+		std::cout << "Failure calculating intrinsic parameters." << std::endl;
+		return EXIT_FAILURE;
+	}
+
+
+
+
+	return EXIT_SUCCESS;
 }
+
+
+
+
 
 
