@@ -394,6 +394,38 @@ cv::matrixr get_intrinsic_mat(const cv::matrixr &B) {
 	}
 }
 
+void compute_extrinsics(cv::matrixr A, cv::matrixr H, cv::matrixr &R, cv::vec3r &t) {
+
+	auto A_inv = A.clone();
+	cv::invert(A_inv);
+
+	auto h1 = H.col(0);
+	auto h2 = H.col(1);
+	auto h3 = H.col(2);
+
+	auto r1	= A_inv * h1;
+	auto r2	= A_inv * h2;
+	cv::vectorr r3;
+
+	real_t lambda_1 = 1. / cv::norm(r1.begin(), r1.end(), cv::Norm::L1);
+	real_t lambda_2 = 1. / cv::norm(r2.begin(), r2.end(), cv::Norm::L1);
+	real_t lambda_3 = (lambda_1 + lambda_2) / 2;
+
+	r1 *= lambda_1;
+	r2 *= lambda_2;
+	r3 = r1.cross(r2);
+	t = (A_inv * h3) * lambda_3;
+
+	R.create(3, 3);
+	auto c1 = R.col(0);
+	auto c2 = R.col(1);
+	auto c3 = R.col(2);
+
+	std::copy(r1.begin(), r1.end(), c1.begin());
+	std::copy(r2.begin(), r2.end(), c2.begin());
+	std::copy(r3.begin(), r3.end(), c3.begin());
+}
+
 int main() {
 
 	//pattern_detection();
@@ -407,6 +439,8 @@ int main() {
 	read_zhang_data("/home/relja/git/camera_calibration/calib_data/zhang_data", image_points, model_points);
 
 	auto N = normalize_image_points(image_points, im_w, im_h);
+	auto N_inv = N.clone(); 
+	cv::invert(N_inv);
 
 	auto image_points_count = image_points.size();
 
@@ -417,7 +451,7 @@ int main() {
 
 		auto &H = Hs[i];
 
-		homography_least_squares(image_points[i], model_points, H);
+		homography_solve(image_points[i], model_points, H);
 
 		homography_optimization::source_pts = image_points[i];
 		homography_optimization::target_pts = model_points;
@@ -438,20 +472,29 @@ int main() {
 
 	auto A_p = get_intrinsic_mat(B);
 
-	if (A_p) {
-		std::cout << "Intrinsics matrix A':" << std::endl;
-		std::cout << A_p << std::endl;
-		auto A = denormalize_intrinsics(A_p, N);
-		std::cout << "Denormalized intrinsics matrix A:" << std::endl;
-		std::cout << A << std::endl;
-		
-	} else {
+	if (!A_p) {
 		std::cout << "Failure calculating intrinsic parameters." << std::endl;
 		return EXIT_FAILURE;
 	}
 
+	std::cout << "Intrinsics matrix A':" << std::endl;
+	std::cout << A_p << std::endl;
 
+	auto A = denormalize_intrinsics(A_p, N);
+	std::cout << "Denormalized intrinsics matrix A:" << std::endl;
+	std::cout << A << std::endl;
 
+	int i = 0;
+	for (auto H : Hs) {
+		cv::matrixr R;
+		cv::vec3r t; // extrinsics
+
+		compute_extrinsics(A, N_inv*H, R, t);
+		std::cout << "Extrinsics " <<  (i++) << std::endl;
+		std::cout << "R:\n" << R << std::endl;
+		std::cout << "t:\n" << t << std::endl;
+		std::cout << std::endl;
+	}
 
 	return EXIT_SUCCESS;
 }
