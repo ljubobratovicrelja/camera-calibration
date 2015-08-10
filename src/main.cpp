@@ -394,27 +394,34 @@ cv::matrixr get_intrinsic_mat(const cv::matrixr &B) {
 	}
 }
 
-void compute_extrinsics(cv::matrixr A, cv::matrixr H, cv::matrixr &R, cv::vec3r &t) {
+void m3MultAb(real_t* A, real_t* b, real_t* x) {
+   x[0]=A[0]*b[0]+A[1]*b[1]+A[2]*b[2];
+   x[1]=A[3]*b[0]+A[4]*b[1]+A[5]*b[2];
+   x[2]=A[6]*b[0]+A[7]*b[1]+A[8]*b[2];
+}
 
-	auto A_inv = A.clone();
-	cv::invert(A_inv);
+void compute_extrinsics(cv::matrixr Ainv, cv::matrixr H, cv::matrixr &R, cv::vec3r &t) {
 
 	auto h1 = H.col(0);
 	auto h2 = H.col(1);
 	auto h3 = H.col(2);
 
-	auto r1	= A_inv * h1;
-	auto r2	= A_inv * h2;
-	cv::vectorr r3;
+	auto r1 = Ainv * h1;
+	auto r2 = Ainv * h2;
 
-	real_t lambda_1 = 1. / cv::norm(r1.begin(), r1.end(), cv::Norm::L1);
-	real_t lambda_2 = 1. / cv::norm(r2.begin(), r2.end(), cv::Norm::L1);
-	real_t lambda_3 = (lambda_1 + lambda_2) / 2;
+	real_t l1 = 1. / r1.norm();
+	real_t l2 = 1. / r2.norm();
+	real_t l3 = (l1 + l2) / 2.;
 
-	r1 *= lambda_1;
-	r2 *= lambda_2;
-	r3 = r1.cross(r2);
-	t = (A_inv * h3) * lambda_3;
+	r1.normalize();
+	r2.normalize();
+	auto r3 = r1.cross(r2);
+
+	auto tv = (Ainv * h3) * l3;
+
+	t[0] = tv[0];
+	t[1] = tv[1];
+	t[2] = tv[2];
 
 	R.create(3, 3);
 	auto c1 = R.col(0);
@@ -484,12 +491,15 @@ int main() {
 	std::cout << "Denormalized intrinsics matrix A:" << std::endl;
 	std::cout << A << std::endl;
 
+	auto A_inv = A.clone();
+	cv::invert(A_inv);
+
 	int i = 0;
 	for (auto H : Hs) {
 		cv::matrixr R;
 		cv::vec3r t; // extrinsics
 
-		compute_extrinsics(A, N_inv*H, R, t);
+		compute_extrinsics(A_inv, N_inv*H, R, t);
 		std::cout << "Extrinsics " <<  (i++) << std::endl;
 		std::cout << "R:\n" << R << std::endl;
 		std::cout << "t:\n" << t << std::endl;
