@@ -267,7 +267,7 @@ std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, rea
 	return obj_pts;
 }
 
-real_t calc_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec3r> &target_pts) {
+real_t calc_h_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec3r> &target_pts) {
 
 	ASSERT(source_pts.size() == target_pts.size() && H && H.rows() == 3 && H.cols() == 3);
 
@@ -400,7 +400,7 @@ void m3MultAb(real_t* A, real_t* b, real_t* x) {
    x[2]=A[6]*b[0]+A[7]*b[1]+A[8]*b[2];
 }
 
-void compute_extrinsics(cv::matrixr Ainv, cv::matrixr H, cv::matrixr &R, cv::vec3r &t) {
+void compute_extrinsics(cv::matrixr Ainv, cv::matrixr H, cv::matrixr &K) {
 
 	auto h1 = H.col(0);
 	auto h2 = H.col(1);
@@ -417,20 +417,105 @@ void compute_extrinsics(cv::matrixr Ainv, cv::matrixr H, cv::matrixr &R, cv::vec
 	r2.normalize();
 	auto r3 = r1.cross(r2);
 
-	auto tv = (Ainv * h3) * l3;
+	auto t	= (Ainv * h3) * l3;
 
-	t[0] = tv[0];
-	t[1] = tv[1];
-	t[2] = tv[2];
+	K.create(3, 4);
 
-	R.create(3, 3);
-	auto c1 = R.col(0);
-	auto c2 = R.col(1);
-	auto c3 = R.col(2);
+	auto c1 = K.col(0);
+	auto c2 = K.col(1);
+	auto c3 = K.col(2);
+	auto c4 = K.col(3);
 
 	std::copy(r1.begin(), r1.end(), c1.begin());
 	std::copy(r2.begin(), r2.end(), c2.begin());
 	std::copy(r3.begin(), r3.end(), c3.begin());
+	std::copy(t.begin(), t.end(), c4.begin());
+}
+
+real_t calc_reprojection_error(const cv::matrixr &A, const cv::matrixr &K,
+                            const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts, 
+							std::vector<cv::vec2r> &image_pts_proj, std::vector<cv::vec2r> &camera_pts)
+{
+	ASSERT(model_pts.size() == image_pts.size());
+
+	auto m = model_pts.size();
+
+	camera_pts = std::vector<cv::vec2r>(m);
+	image_pts_proj = std::vector<cv::vec2r>(m);
+
+	cv::vectorr model(4);
+	cv::vectorr res(3);
+	cv::vectorr cam_ptn(3);
+
+	cv::matrixr ARt = A * K;
+
+	real_t err = 0.0;
+
+	for(unsigned i = 0; i < m; i++) {
+
+		model[0] = model_pts[i][0];
+		model[1] = model_pts[i][1];
+		model[2] = 0.0;
+		model[3] = 1.0;
+
+		cam_ptn = K * model;
+		res = ARt * model;
+
+		camera_pts[i][0] = cam_ptn[0];
+		camera_pts[i][1] = cam_ptn[1];
+		image_pts_proj[i][0] = res[0] / res[2];
+		image_pts_proj[i][1] = res[1] / res[2];
+
+		err += sqrt(pow(image_pts[i][0] - image_pts_proj[i][0], 2) + 
+				pow(image_pts[i][1] - image_pts_proj[i][1], 2));
+	}
+
+	return err / m;
+}
+
+cv::vec2r compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm, 
+		const std::vector<std::vector<cv::vec2r>> &image_pts_proj, const cv::matrixr &A){
+
+	ASSERT(!image_pts.empty() && !image_pts_nrm.empty() && !image_pts_proj.empty());
+	ASSERT(image_pts.front().size() == image_pts_nrm.front().size() && 
+			image_pts.front().size() == image_pts_proj.front().size());
+
+	cv::vec2r k;
+	real_t Uo,Vo,u_uo,v_vo, x2_y2;
+
+	unsigned n_pts = image_pts.front().size();
+
+	cv::matrixr D(image_pts.size()*n_pts*2, 2);
+	cv::matrixr d(image_pts.size()*n_pts*2, 1);
+	
+	Uo =  A(0, 2);  
+	Vo =  A(1, 2); 
+
+	for (unsigned b = 0; b < image_pts.size(); ++b) {
+		for (unsigned i = 0; i < n_pts; i++) {
+
+			x2_y2 = (image_pts_nrm[b][i] * image_pts_nrm[b][i]).sum();
+			u_uo = image_pts_proj[b][i][0] - Uo;
+			v_vo = image_pts_proj[b][i][1] - Vo;
+
+			D(i*2, 0) = (u_uo)*(x2_y2); 
+			D(i*2, 1) = (u_uo)*(x2_y2)*(x2_y2); 
+
+			D(i*2 + 1, 0) = (v_vo)*(x2_y2); 
+			D(i*2 + 1, 1) = (v_vo)*(x2_y2)*(x2_y2);
+
+			d(i*2, 0) = image_pts[b][i][0] - image_pts_proj[b][i][0];
+			d(i*2+1, 0) = image_pts[b][i][1] - image_pts_proj[b][i][1];
+		}
+	}
+
+	cv::matrixr K;
+	cv::lu_solve(D, d, K);
+
+	k[0] = K.data()[0];
+	k[1] = K.data()[1];
+
+	return k;
 }
 
 int main() {
@@ -440,27 +525,29 @@ int main() {
 
 	unsigned im_w = 640, im_h = 480;
 
-	std::vector<std::vector<cv::vec2r>> image_points;
+	std::vector<std::vector<cv::vec2r>> image_points_nrm;
 	std::vector<cv::vec3r> model_points;
 
-	read_zhang_data("/home/relja/git/camera_calibration/calib_data/zhang_data", image_points, model_points);
+	read_zhang_data("/home/relja/git/camera_calibration/calib_data/zhang_data", image_points_nrm, model_points);
 
-	auto N = normalize_image_points(image_points, im_w, im_h);
+	auto image_points_orig = image_points_nrm;
+
+	auto N = normalize_image_points(image_points_nrm, im_w, im_h);
 	auto N_inv = N.clone(); 
 	cv::invert(N_inv);
 
-	auto image_points_count = image_points.size();
+	auto image_points_count = image_points_nrm.size();
 
 	std::vector<cv::matrixr> Hs(image_points_count);
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
-		ASSERT(image_points[i].size() == model_points.size());
+		ASSERT(image_points_nrm[i].size() == model_points.size());
 
 		auto &H = Hs[i];
 
-		homography_solve(image_points[i], model_points, H);
+		homography_solve(image_points_nrm[i], model_points, H);
 
-		homography_optimization::source_pts = image_points[i];
+		homography_optimization::source_pts = image_points_nrm[i];
 		homography_optimization::target_pts = model_points;
 		homography_optimization::evaluate(H, homography_optimization::reprojection_fcn);
 
@@ -494,17 +581,27 @@ int main() {
 	auto A_inv = A.clone();
 	cv::invert(A_inv);
 
-	int i = 0;
-	for (auto H : Hs) {
-		cv::matrixr R;
-		cv::vec3r t; // extrinsics
+	std::vector<std::vector<cv::vec2r>> image_points_proj(image_points_count);
+	std::vector<std::vector<cv::vec2r>> camera_points(image_points_count);
 
-		compute_extrinsics(A_inv, N_inv*H, R, t);
-		std::cout << "Extrinsics " <<  (i++) << std::endl;
-		std::cout << "R:\n" << R << std::endl;
-		std::cout << "t:\n" << t << std::endl;
-		std::cout << std::endl;
+	for (unsigned i = 0; i < image_points_count; ++i) {
+
+		auto &H = Hs[i];
+
+		cv::matrixr K;
+
+		compute_extrinsics(A_inv, N_inv*H, K);
+
+		std::cout << "Extrinsics " <<  i << std::endl;
+		std::cout << "K:\n" << K << std::endl;
+
+		auto err = calc_reprojection_error(A, K, model_points, image_points_orig[i], image_points_proj[i], camera_points[i]);
+
+		std::cout << "Reprojection error: " << err << std::endl;
 	}
+
+	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
+	std::cout << "Distortion coefficients:\n" << k  << std::endl << std::endl;
 
 	return EXIT_SUCCESS;
 }
