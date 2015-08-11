@@ -30,7 +30,10 @@
 #include <math.hpp>
 
 
-void homography_solve(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, cv::matrixr &H) {
+cv::matrixr homography_8_point(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points) {
+
+	cv::matrixr H;
+
 	auto n = image_points.size();
 	ASSERT(model_points.size() == n);
 	cv::matrixr L = cv::matrixr::zeros(2*n, 9);
@@ -45,21 +48,35 @@ void homography_solve(const std::vector<cv::vec2r> &image_points, const std::vec
 
 		int i = 2*k;                 /* line number in matrix L  */
 
-		L(i,0) =    X;	L(i, 1) =    Y;	L(i, 2) =    W;
-		L(i, 3) =    0;	L(i, 4) =    0;	L(i, 5) =    0;
-		L(i, 6) = -u*X; L(i, 7) = -u*Y;	L(i, 8) = -u*W;
+		L(i,0) =    X;
+		L(i, 1) =    Y;
+		L(i, 2) =    W;
+		L(i, 3) =    0;
+		L(i, 4) =    0;
+		L(i, 5) =    0;
+		L(i, 6) = -u*X;
+		L(i, 7) = -u*Y;
+		L(i, 8) = -u*W;
 
 		i++;
 
-		L(i, 0) =    0; L(i, 1) =    0; L(i, 2) =    0;
-		L(i, 3) =    X; L(i, 4) =    Y; L(i, 5) =    W;
-		L(i, 6) = -v*X; L(i, 7) = -v*Y; L(i, 8) = -v*W;
+		L(i, 0) =    0;
+		L(i, 1) =    0;
+		L(i, 2) =    0;
+		L(i, 3) =    X;
+		L(i, 4) =    Y;
+		L(i, 5) =    W;
+		L(i, 6) = -v*X;
+		L(i, 7) = -v*Y;
+		L(i, 8) = -v*W;
 	}
 
 	cv::null_solve(L, H);
 	H.reshape(3, 3);
-	
+
 	H *= 1. / H(2, 2);
+
+	return H;
 }
 
 // Similarity estimation for normalization process.
@@ -108,8 +125,10 @@ void homography_dlt_normalize(std::vector<cv::vectorx<real_t, _size> > &features
 	}
 }
 
-void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H) {
+cv::matrixr homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts) {
 	ASSERT(src_pts.size() >= 4 && src_pts.size() == tgt_pts.size());
+
+	cv::matrixr H;
 
 	// 0. Prepare data;
 	cv::matrixr srcS, tgtS, invTgtS;
@@ -152,6 +171,8 @@ void homography_dlt(const std::vector<cv::vec2r> &src_pts, const std::vector<cv:
 
 	// 4. denormalize the homography.
 	H = invTgtS * H * srcS;
+
+	return H;
 }
 
 /*
@@ -191,9 +212,9 @@ void pack_ab(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r>
 /*
  * Solve homography using least squares method.
  */
-void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts, cv::matrixr &H) {
+cv::matrixr homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::vector<cv::vec3r> &tgt_pts) {
 
-	cv::matrixr A, B;
+	cv::matrixr A, B, H;
 	pack_ab(src_pts, tgt_pts, A, B);
 	cv::matrixr _H(8, 1);
 
@@ -208,12 +229,25 @@ void homography_least_squares(const std::vector<cv::vec2r> &src_pts, const std::
 	std::copy(_H.begin(), _H.end(), H.begin());
 	H.reshape(3, 3);
 	H(2, 2) = 1;
+
+	return H;
 }
 
-std::vector<cv::vec2r> homography_optimization::source_pts;
-std::vector<cv::vec3r> homography_optimization::target_pts;
+cv::matrixr homography_solve(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, H_calc_alg alg) {
+	switch (alg) {
+	case HOMOGRAPHY_8_POINT:
+		return homography_8_point(image_points, model_points);
+	case HOMOGRAPHY_LEAST_SQUARES:
+		return homography_least_squares(image_points, model_points);
+	case HOMOGRAPHY_DLT:
+		return homography_dlt(image_points, model_points);
+	};
+}
 
-void homography_optimization::reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
+std::vector<cv::vec2r> source_pts;
+std::vector<cv::vec3r> target_pts;
+
+void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
 	// TODO: implement inline cross product without convertion to matrices.
 
 	ASSERT(*m == source_pts.size());
@@ -223,7 +257,7 @@ void homography_optimization::reprojection_fcn(int *m, int *n, double* x, double
 		return;
 
 	// calculate m_projected
-	cv::matrixd _H(3, 3, x); // TODO: check if copies
+	cv::matrixd _H(3, 3, x); // borrow x and form matrix
 	cv::matrixd ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
 
 	for (int i = 0; i < *m; ++i) {
@@ -245,7 +279,11 @@ void homography_optimization::reprojection_fcn(int *m, int *n, double* x, double
 	}
 }
 
-int homography_optimization::evaluate(cv::matrixr &H, cv::optimization_fcn fcn, double tol) {
+int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
+                        cv::matrixr &H, double tol) {
+
+	source_pts = image_points;
+	target_pts = model_points;
 
 	ASSERT(source_pts.size() > 9);
 
@@ -260,7 +298,7 @@ int homography_optimization::evaluate(cv::matrixr &H, cv::optimization_fcn fcn, 
 		_H[i] = H.data_begin()[i];
 	}
 
-	info = cv::lmdif1(fcn, m, n, _H, tol);
+	info = cv::lmdif1(reprojection_fcn, m, n, _H, tol);
 
 	for (int i = 0; i < 9; ++i) {
 		H.data_begin()[i] = _H[i];
@@ -268,5 +306,38 @@ int homography_optimization::evaluate(cv::matrixr &H, cv::optimization_fcn fcn, 
 
 	return info;
 }
+
+real_t calc_h_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec3r> &target_pts) {
+
+	ASSERT(source_pts.size() == target_pts.size() && H && H.rows() == 3 && H.cols() == 3);
+
+	unsigned ptn_count = source_pts.size();
+	real_t err = 0.0;
+
+	// calculate m_projected
+	cv::matrixr ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
+
+	for (unsigned i = 0; i < ptn_count; ++i) {
+		ptn(0, 0) = source_pts[i][0];
+		ptn(1, 0) = source_pts[i][1];
+		ptn(2, 0) = 1.;
+
+		p_ptn(0, 0) = target_pts[i][0];
+		p_ptn(1, 0) = target_pts[i][1];
+		p_ptn(2, 0) = target_pts[i][2];
+
+		cv::cross( H, ptn, res_ptn);
+
+		res_ptn(0, 0) /= res_ptn(2, 0);
+		res_ptn(1, 0) /= res_ptn(2, 0);
+		res_ptn(2, 0) = 1;
+
+		err += cv::distance(res_ptn, p_ptn, cv::Norm::L2);
+	}
+
+	return err / ptn_count;
+}
+
+
 
 
