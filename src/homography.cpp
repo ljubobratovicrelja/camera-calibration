@@ -275,12 +275,12 @@ void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
 		res_ptn(1, 0) /= res_ptn(2, 0);
 		res_ptn(2, 0) = 1.;
 
-		fvec[i] = cv::distance(p_ptn, res_ptn, cv::Norm::L2);
+		fvec[i] = sqrt(pow(p_ptn(0, 0) - res_ptn(0, 0), 2) + pow(p_ptn(1, 0) - res_ptn(1, 0), 2));
 	}
 }
 
 int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
-                        cv::matrixr &H, double tol) {
+                        cv::matrixr &H, unsigned maxiter, double tol) {
 
 	source_pts = image_points;
 	target_pts = model_points;
@@ -298,7 +298,7 @@ int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::v
 		_H[i] = H.data_begin()[i];
 	}
 
-	info = cv::lmdif1(reprojection_fcn, m, n, _H, tol);
+	info = cv::lmdif(reprojection_fcn, m, n, _H, maxiter, tol, tol, tol);
 
 	for (int i = 0; i < 9; ++i) {
 		H.data_begin()[i] = _H[i];
