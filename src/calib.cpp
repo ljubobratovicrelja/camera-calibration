@@ -24,6 +24,9 @@
 // Relja Ljubobratovic, ljubobratovic.relja@gmail.com
 
 
+#include <gui.hpp>
+#include <draw.hpp>
+
 #include "calib.hpp"
 
 
@@ -59,16 +62,7 @@ cv::vectorr solve_b(const cv::matrixr &V) {
 	cv::matrixr U, S, Vt;
 	cv::svd_decomp(V, U, S, Vt);
 
-	real_t smallest_sv = std::numeric_limits<real_t>::max();
-	unsigned smallest_i = 0;
-	for (unsigned i = 0; i < S.rows(); ++i) {
-		if (S(i, i) < smallest_sv) {
-			smallest_sv = S(i, i);
-			smallest_i = i;
-		}
-	}
-
-	return Vt.transposed().col(smallest_i);
+	return Vt.transposed().col(Vt.cols() - 1);
 }
 
 cv::matrixr get_B_from_b(const cv::vectorr &b) {
@@ -157,29 +151,48 @@ cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> > &pattern
 	};
 }
 
+cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vec2r &k) {
+	ASSERT(world_ptn.length() == 4);
+
+	auto proj_ptn = K * world_ptn; // convert from world to camera coordinate system
+	proj_ptn /= proj_ptn[2]; // project to pinhole camera;s image plane at Z=1
+
+	auto r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; // calc distance from optical center.
+	auto rad_dist = 1 + k[0]*r2 + k[1]*(r2*r2);
+
+	proj_ptn *= rad_dist; // apply radial distortion to projected point.
+	proj_ptn /= proj_ptn[2]; // convert to homogenious
+
+	auto pp_vec = A * cv::vectorr{proj_ptn[0], proj_ptn[1], proj_ptn[2]};
+
+	return {pp_vec[0] / pp_vec[2], pp_vec[1] / pp_vec[2] };
+}
+
 cv::matrixr denormalize_intrinsics(const cv::matrixr &A_p, const cv::matrixr &N) {
 	auto N_inv = N.clone();
 	cv::invert(N_inv);
 	return (N_inv*A_p);
 }
 
-real_t calc_reprojection_error(const cv::matrixr &A, const cv::matrixr &K,
-                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts,
-                               std::vector<cv::vec2r> &image_pts_proj, std::vector<cv::vec2r> &camera_pts) {
+real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
+                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts, const std::vector<cv::vec2r> &image_pts_nrm,
+                               std::vector<cv::vec2r> &image_pts_proj, std::vector<cv::vec3r> &camera_pts, cv::vec2r k) {
 	ASSERT(model_pts.size() == image_pts.size());
 
 	auto m = model_pts.size();
 
-	camera_pts = std::vector<cv::vec2r>(m);
+	camera_pts = std::vector<cv::vec3r>(m);
 	image_pts_proj = std::vector<cv::vec2r>(m);
 
 	cv::vectorr model(4);
 	cv::vectorr res(3);
-	cv::vectorr cam_ptn(3);
 
 	cv::matrixr ARt = A * K;
 
-	real_t err = 0.0;
+	real_t err = 0.0, x2_y2, u_uo, v_vo;
+
+	real_t Uo = A(0, 2);
+	real_t Vo = A(1, 2);
 
 	for(unsigned i = 0; i < m; i++) {
 
@@ -188,19 +201,45 @@ real_t calc_reprojection_error(const cv::matrixr &A, const cv::matrixr &K,
 		model[2] = 0.0;
 		model[3] = 1.0;
 
-		cam_ptn = K * model;
 		res = ARt * model;
 
-		camera_pts[i][0] = cam_ptn[0];
-		camera_pts[i][1] = cam_ptn[1];
-		image_pts_proj[i][0] = res[0] / res[2];
-		image_pts_proj[i][1] = res[1] / res[2];
+		auto cam = K * model;
+		camera_pts[i][0] = cam[0];
+		camera_pts[i][1] = cam[1];
+		camera_pts[i][2] = cam[2];
+
+		real_t r3 = res[2] ? 1. / res[2] : 1.;
+		image_pts_proj[i][0] = res[0] * r3;
+		image_pts_proj[i][1] = res[1] * r3;
+
+		x2_y2 = (image_pts_nrm[i] * image_pts_nrm[i]).sum();
+
+		u_uo = image_pts_proj[i][0] - Uo;
+		v_vo = image_pts_proj[i][1] - Vo;
+
+		image_pts_proj[i][0] = image_pts_proj[i][0] + u_uo*(k[0]*(x2_y2) + k[1]*pow(x2_y2, 2));
+		image_pts_proj[i][1] = image_pts_proj[i][1] + v_vo*(k[0]*(x2_y2) + k[1]*pow(x2_y2, 2));
 
 		err += sqrt(pow(image_pts[i][0] - image_pts_proj[i][0], 2) +
 		            pow(image_pts[i][1] - image_pts_proj[i][1], 2));
 	}
 
 	return err / m;
+}
+
+cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts, 
+		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h) {
+
+	ASSERT(image_pts.size() == image_pts_proj.size());
+
+	cv::matrix3b reprojection = cv::matrix3b::zeros(im_h,im_w);
+
+	for (unsigned i = 0; i < image_pts.size(); ++i) {
+		cv::draw_circle(reprojection, image_pts[i], 3, {0, 0, 255});
+		cv::draw_circle(reprojection, image_pts_proj[i], 5, {255, 0, 0});
+	}
+
+	return reprojection;
 }
 
 cv::matrixr compute_intrisics(const std::vector<cv::matrixr> &Hs) {
@@ -230,8 +269,8 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H) {
 	real_t l2 = 1. / r2.norm();
 	real_t l3 = (l1 + l2) / 2.;
 
-	r1.normalize();
-	r2.normalize();
+	r1 *= l1;
+	r2 *= l2;
 	auto r3 = r1.cross(r2);
 
 	auto t	= (Ainv * h3) * l3;
@@ -242,7 +281,8 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H) {
 		{r1[2], r2[2], r3[2]}
 	};
 
-	cv::matrixr U, S, Vt;
+	// reorthogonalize R
+	cv::matrixr U, S, Vt, Rt;
 	cv::svd_decomp(R, U, S, Vt);
 
 	R = U * Vt;
