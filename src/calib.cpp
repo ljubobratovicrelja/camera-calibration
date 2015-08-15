@@ -1,28 +1,3 @@
-// The MIT License (MIT)
-//
-// Copyright (c) 2015 Relja Ljubobratovic, ljubobratovic.relja@gmail.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-// Author:
-// Relja Ljubobratovic, ljubobratovic.relja@gmail.com
-
 
 #include <gui.hpp>
 #include <draw.hpp>
@@ -158,10 +133,9 @@ cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, 
 	proj_ptn /= proj_ptn[2]; // project to pinhole camera;s image plane at Z=1
 
 	auto r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; // calc distance from optical center.
-	auto rad_dist = 1 + k[0]*r2 + k[1]*(r2*r2);
 
-	proj_ptn *= rad_dist; // apply radial distortion to projected point.
-	proj_ptn /= proj_ptn[2]; // convert to homogenious
+	proj_ptn *= 1 + k[0]*r2 + k[1]*(r2*r2);	proj_ptn /= proj_ptn[2];
+	proj_ptn /= proj_ptn[2];
 
 	auto pp_vec = A * cv::vectorr{proj_ptn[0], proj_ptn[1], proj_ptn[2]};
 
