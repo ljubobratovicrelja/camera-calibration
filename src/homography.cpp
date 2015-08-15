@@ -247,11 +247,7 @@ cv::matrixr homography_solve(const std::vector<cv::vec2r> &image_points, const s
 std::vector<cv::vec2r> source_pts;
 std::vector<cv::vec3r> target_pts;
 
-void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
-	// TODO: implement inline cross product without convertion to matrices.
-
-	ASSERT(*m == source_pts.size());
-	ASSERT(*n == 9);
+void reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 
 	if (*iflag == 0)
 		return;
@@ -260,7 +256,7 @@ void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
 	cv::matrixd _H(3, 3, x); // borrow x and form matrix
 	cv::matrixd ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
 
-	for (int i = 0; i < *m; ++i) {
+	for (int i = 0; i < m; ++i) {
 		ptn(0, 0) = target_pts[i][0]; // model point
 		ptn(1, 0) = target_pts[i][1];
 		ptn(2, 0) = target_pts[i][2];
@@ -280,7 +276,7 @@ void reprojection_fcn(int *m, int *n, double* x, double* fvec,int *iflag) {
 }
 
 int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
-                        cv::matrixr &H, unsigned maxiter, double tol) {
+                        cv::matrixr &H, double tol) {
 
 	source_pts = image_points;
 	target_pts = model_points;
@@ -298,11 +294,15 @@ int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::v
 		_H[i] = H.data_begin()[i];
 	}
 
-	info = cv::lmdif(reprojection_fcn, m, n, _H, maxiter, tol, tol, tol);
+	info = cv::lmdif1(reprojection_fcn, m, n, _H, tol);
 
 	for (int i = 0; i < 9; ++i) {
 		H.data_begin()[i] = _H[i];
 	}
+
+	H /= H(2, 2);
+
+	delete [] _H;
 
 	return info;
 }
