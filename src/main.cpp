@@ -10,8 +10,6 @@
 #include "optimize.hpp"
 #include "calib.hpp"
 
-#include <cminpack.h>
-
 
 std::vector<std::string> split_string(std::string s, const std::string &delimiter = " ") {
 	std::vector<std::string> tokens;
