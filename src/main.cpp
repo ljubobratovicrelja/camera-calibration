@@ -1,4 +1,3 @@
-
 #include <io.hpp>
 #include <gui.hpp>
 
@@ -204,8 +203,13 @@ bool read_custom_data(const std::string &filepath, std::vector<std::vector<cv::v
 int main(int argc, char **argv) {
 
 	std::string pattern_file = "";
+	bool fixed_aspect = false;
+	bool no_skew = false;
+	double ftol = 1e-14;
 
-	if (argc != 2) {
+	// ================= PARSE ARGUMENTS, INITIALIZE PROGRAM ================== //
+	//
+	if (argc < 2) {
 		std::cout << "Invalid arguments:\n" << std::endl;
 		std::cout << "Flags:\n--detection: pattern detection program;\n" 
 			<< "--zhang: calibrate using zhang experimental data;\n"
@@ -292,6 +296,34 @@ int main(int argc, char **argv) {
 		pattern_file = argv[1];
 	}
 
+	if (argc > 2) {
+		for (int i = 1; i < argc; ++i) {
+			std::string _arg = argv[i];
+			if (_arg == "--no-skew") {
+				no_skew = true;
+			} else if (_arg == "--fixed-aspect") {
+				fixed_aspect = true;
+			} else if (_arg == "--ftol") {
+				if (i + 1 >= argc) {
+					std::cout << "Argument error: ftol flag needs to have float value following." << std::endl;
+					exit(EXIT_FAILURE);
+				}
+				try {
+					ftol = std::stod(argv[i + 1]);
+				} catch (std::invalid_argument &e) {
+					std::cout << "Argument error: ftol flag needs to have float value following." << std::endl;
+					exit(EXIT_FAILURE);
+				} catch (std::out_of_range &e) {
+					std::cout << "Argument error: ftol cannot be converted to double value - out of range.\n" 
+						<< "Setting to default: 1e-14" << std::endl;
+					ftol = 1e-14;
+				}
+			}
+		}
+	}
+
+	// =================== INITIALIZE CALIBRATION ============================= //
+
 	unsigned im_w, im_h;
 
 	std::vector<std::vector<cv::vec2r>> image_points_nrm;
@@ -322,7 +354,7 @@ int main(int argc, char **argv) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		homography_optimize(image_points_nrm[i], model_points, Hs[i]);
+		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
 
 		std::cout << "Homography " << i << std::endl << Hs[i] << std::endl;
 	}
@@ -349,7 +381,7 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < image_points_count; ++i) {
 
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
-		optimize_extrinsics(image_points_orig[i], model_points, A, K);
+		optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
 
 		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], camera_points[i]);
 
@@ -363,7 +395,7 @@ int main(int argc, char **argv) {
 	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
 	std::cout << "Init k:\n" << k << std::endl << std::endl;
 
-	optimize_all(image_points_orig, model_points, A, Ks, k, false, false);
+	optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
 
 	std::cout << "\n\n**********************************************************" << std::endl;
 	std::cout << "A:\n" << A << std::endl;
