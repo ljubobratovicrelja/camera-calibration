@@ -119,7 +119,7 @@ cv::vec2r compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pt
  * @param im_h image height
  */
 cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts, 
-		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h);
+		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h, real_t scale = 1.0);
 
 
 #endif /* end of include guard: CALIB_HPP_Q5H9DDXY */
