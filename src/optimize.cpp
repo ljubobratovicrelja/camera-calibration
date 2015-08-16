@@ -258,7 +258,7 @@ int optimize_all(const std::vector<std::vector<cv::vec2r>> &image_points, const 
 	data[n - 2] = k[0];
 	data[n - 1] = k[1];
 
-	if((info = cv::lmdif1(all_reprojection_fcn, m, n, data, tol))) {
+	if((info = cv::lmdif(all_reprojection_fcn, m, n, data, 50, tol, tol, tol))) {
 		A = construct_a(data);
 		for (unsigned b = 0; b < K.size(); ++b) {
 			cv::matrixd K_(3, 4, (data + a_param_count + (b * 12)));
