@@ -202,15 +202,15 @@ real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
 }
 
 cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts, 
-		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h) {
+		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h, real_t scale) {
 
 	ASSERT(image_pts.size() == image_pts_proj.size());
 
-	cv::matrix3b reprojection = cv::matrix3b::zeros(im_h,im_w);
+	cv::matrix3b reprojection = cv::matrix3b::zeros(im_h*scale,im_w*scale);
 
 	for (unsigned i = 0; i < image_pts.size(); ++i) {
-		cv::draw_circle(reprojection, image_pts[i], 3, {0, 0, 255});
-		cv::draw_circle(reprojection, image_pts_proj[i], 5, {255, 0, 0});
+		cv::draw_circle(reprojection, image_pts[i]*scale, 3, {0, 0, 255});
+		cv::draw_circle(reprojection, image_pts_proj[i]*scale, 5, {255, 0, 0});
 	}
 
 	return reprojection;
