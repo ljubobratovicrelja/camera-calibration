@@ -214,6 +214,7 @@ int main(int argc, char **argv) {
 	std::string pattern_file = "";
 	bool fixed_aspect = false;
 	bool no_skew = false;
+	bool skip_optimization = false;
 	bool skip_extrinsic_optmization = false;
 	bool skip_distortion_optimization = false;
 	double ftol = 1e-14;
@@ -447,6 +448,8 @@ int main(int argc, char **argv) {
 				string_to_double(ftol, argc, argv, i, "ftol");
 			} else if (_arg == "--model-square-size") {
 				string_to_double(model_square_size, argc, argv, i, "model-square-size");
+			} else if (_arg == "--skip-opt") {
+				skip_optimization = true;
 			} else if (_arg == "--skip-ext-opt") {
 				skip_extrinsic_optmization = true;
 			} else if (_arg == "--skip-dist-opt") {
@@ -540,7 +543,8 @@ int main(int argc, char **argv) {
 
 	std::cout << "Init k:\n" << k << std::endl << std::endl;
 
-	optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
+	if (!skip_optimization)
+		optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
 
 	std::cout << "\n\n**********************************************************" << std::endl;
 	std::cout << "A:\n" << A << std::endl;
@@ -561,6 +565,7 @@ int main(int argc, char **argv) {
 
 	return EXIT_SUCCESS;
 }
+
 
 
 
