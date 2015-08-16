@@ -519,7 +519,8 @@ int main(int argc, char **argv) {
 
 		if (!skip_extrinsic_optmization) {
 			optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
-			if (cv::distance(K, K_orig) > 10)
+			auto k_dist = cv::distance(K, K_orig);
+			if (k_dist > 2.)
 				K = K_orig.clone();
 		}
 
@@ -533,6 +534,7 @@ int main(int argc, char **argv) {
 	}
 
 	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
+
 	if (!skip_distortion_optimization)
 		optimize_distortion(image_points_orig, model_points, A, Ks, k);
 
@@ -548,7 +550,10 @@ int main(int argc, char **argv) {
 		std::cout << "K" << i << ":\n" << Ks[i] << std::endl;
 		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], camera_points[i], k);
 		std::cout << "Reprojection error: " << err << std::endl;
-		cv::imshow("reprojection", draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h));
+		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
+		auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
+
+		cv::imshow("reprojection",reproj);
 		cv::wait_key();
 	}
 
