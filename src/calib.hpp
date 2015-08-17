@@ -52,9 +52,9 @@ cv::matrixr denormalize_intrinsics(const cv::matrixr &A_p, const cv::matrixr &N)
  * @param world_ptn 4D model point.
  * @param A intrinsic matrix. (3x3)
  * @param K extrinsic matrix [R | t] (3x4)
- * @param k distortion cofficients.
+ * @param k radial and tangential distortion cofficients. [k1, k2, (k3, k4, k5, k6), p1, p2]
  */
-cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vec2r &k = cv::vec2r{0, 0});
+cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vectorr &k);
 /*!
  * @brief Calculate reprojection error using given intrinsic and extrinsic matrices, and image and world points
  * used to calculate those.
@@ -64,14 +64,13 @@ cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, 
  * @param model_pts world points of the pattern used for calibration.
  * @param image_pts image points of the pattern used for calibration.
  * @param image_pts_proj vector of points where reprojected points will be stored.
- * @param camera_pts camera projection points - K * model
  * 
  * @return 
  * square error of reprojection.
  */
 real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
-                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts, const std::vector<cv::vec2r> &image_pts_nrm,
-                               std::vector<cv::vec2r> &image_pts_proj, std::vector<cv::vec3r> &camera_pts, cv::vec2r k = cv::vec2r());
+                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts,
+                               std::vector<cv::vec2r> &image_pts_proj, const cv::vectorr &k = cv::vectorr());
 
 /*!
  * @brief Compute intrinsic 3x3 matrix A from set of homography matrices calculated using calibration patterns.
@@ -105,7 +104,7 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H);
  * @return
  * 2d real vector with [k1, k2] as values.
  */
-cv::vec2r compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm,
+cv::vectorr compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm,
                              const std::vector<std::vector<cv::vec2r>> &image_pts_proj, const cv::matrixr &A);
 
 /*!
