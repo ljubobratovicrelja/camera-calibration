@@ -211,6 +211,14 @@ bool read_custom_data(const std::string &filepath, std::vector<std::vector<cv::v
 
 int main(int argc, char **argv) {
 
+	std::cout << "********************************************" << std::endl;
+
+	std::cout << "Program ran using flags:" << std::endl;
+	for (int i = 0; i < argc; ++i) {
+		std::cout << argv[i] << " ";
+	}
+	std::cout << "\n********************************************" << std::endl << std::endl;
+
 	std::string pattern_file = "";
 	bool fixed_aspect = false;
 	bool no_skew = false;
@@ -474,8 +482,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	image_points_nrm.erase(image_points_nrm.begin() + 6);
-
 	auto image_points_orig = image_points_nrm;
 
 	auto N = normalize_image_points(image_points_nrm, im_w, im_h);
@@ -490,7 +496,7 @@ int main(int argc, char **argv) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
+		//homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
 
 		std::cout << "Homography " << i << std::endl << Hs[i] << std::endl;
 	}
@@ -547,16 +553,19 @@ int main(int argc, char **argv) {
 		optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
 
 	std::cout << "\n\n**********************************************************" << std::endl;
+	std::cout << "Final Optimization Results:" << std::endl;
 	std::cout << "A:\n" << A << std::endl;
 	std::cout << "k:\n" << k << std::endl << std::endl;
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
-		std::cout << "K" << i << ":\n" << Ks[i] << std::endl;
+		std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
 		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], camera_points[i], k);
-		std::cout << "Reprojection error: " << err << std::endl;
+		std::cout << "Reprojection error: " << err << std::endl << std::endl;
+
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
 		auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
 
+		cv::imwrite(reproj, "reprojection_" + std::to_string(i) + ".png");
 		cv::imshow("reprojection",reproj);
 		cv::wait_key();
 	}
@@ -565,12 +574,4 @@ int main(int argc, char **argv) {
 
 	return EXIT_SUCCESS;
 }
-
-
-
-
-
-
-
-
 
