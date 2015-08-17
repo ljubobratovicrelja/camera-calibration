@@ -496,7 +496,7 @@ int main(int argc, char **argv) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		//homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
+		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
 
 		std::cout << "Homography " << i << std::endl << Hs[i] << std::endl;
 	}
@@ -524,16 +524,11 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < image_points_count; ++i) {
 
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
-		auto K_orig = K.clone();
 
-		if (!skip_extrinsic_optmization) {
+		if (!skip_extrinsic_optmization)
 			optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
-			auto k_dist = cv::distance(K, K_orig);
-			if (k_dist > 2.)
-				K = K_orig.clone();
-		}
 
-		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], camera_points[i]);
+		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_proj[i]);
 
 		std::cout << "Extrinsics " <<  i << std::endl;
 		std::cout << "\nOptimized reprojection error: " << err << std::endl;
@@ -544,10 +539,12 @@ int main(int argc, char **argv) {
 
 	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
 
-	if (!skip_distortion_optimization)
-		optimize_distortion(image_points_orig, model_points, A, Ks, k);
-
 	std::cout << "Init k:\n" << k << std::endl << std::endl;
+
+	if (!skip_distortion_optimization) {
+		optimize_distortion(image_points_orig, model_points, A, Ks, k); 
+		std::cout << "Optimized k:\n" << k << std::endl << std::endl;
+	}
 
 	if (!skip_optimization)
 		optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
@@ -559,7 +556,7 @@ int main(int argc, char **argv) {
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
-		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], camera_points[i], k);
+		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_proj[i], k);
 		std::cout << "Reprojection error: " << err << std::endl << std::endl;
 
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
