@@ -126,16 +126,28 @@ cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> > &pattern
 	};
 }
 
-cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vec2r &k) {
+cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vectorr &k) {
 	ASSERT(world_ptn.length() == 4);
 
-	auto proj_ptn = K * world_ptn; // convert from world to camera coordinate system
-	proj_ptn /= proj_ptn[2]; // project to pinhole camera;s image plane at Z=1
+	auto proj_ptn = K * world_ptn; 
+	proj_ptn /= proj_ptn[2]; 
 
-	auto r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; // calc distance from optical center.
-
-	proj_ptn *= 1 + k[0]*r2 + k[1]*(r2*r2);	proj_ptn /= proj_ptn[2];
-	proj_ptn /= proj_ptn[2];
+	if (k.length() == 4) {
+		real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
+		real_t d_r = (1 + k[0]*r2 + k[1]*(r2*r2)); // radial distortion
+		real_t d_t = 2 * k[2]*proj_ptn[0]*proj_ptn[1] + k[3]*(r2 + 2*(proj_ptn[0]*proj_ptn[0])); // tan distortion
+		proj_ptn[0] = proj_ptn[0]*d_r+ d_t;
+		proj_ptn[1] = proj_ptn[1]*d_r+ d_t;
+	} else if (k.length() == 8) {
+		real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
+		real_t r3 = proj_ptn[0]*proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1]*proj_ptn[1] + 1; 
+		real_t k_u = 1 + k[0]*r2 + k[1]*(r2*r2) + k[2]*(r3*r3);
+		real_t k_d = 1 + k[3]*r2 + k[4]*(r2*r2) + k[5]*(r3*r3);
+		real_t d_r = (k_d) ? k_u / k_d : 0.; // radial distortion
+		real_t d_t = 2 * k[2]*proj_ptn[0]*proj_ptn[1] + k[3]*(r2 + 2*(proj_ptn[0]*proj_ptn[0])); // tan distortion
+		proj_ptn[0] = proj_ptn[0]*d_r+ d_t;
+		proj_ptn[1] = proj_ptn[1]*d_r+ d_t;
+	}
 
 	auto pp_vec = A * cv::vectorr{proj_ptn[0], proj_ptn[1], proj_ptn[2]};
 
@@ -149,25 +161,17 @@ cv::matrixr denormalize_intrinsics(const cv::matrixr &A_p, const cv::matrixr &N)
 }
 
 real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
-                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts, const std::vector<cv::vec2r> &image_pts_nrm,
-                               std::vector<cv::vec2r> &image_pts_proj, std::vector<cv::vec3r> &camera_pts, cv::vec2r k) {
+                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts,
+                               std::vector<cv::vec2r> &image_pts_proj, const cv::vectorr &k) {
 	ASSERT(model_pts.size() == image_pts.size());
 
 	auto m = model_pts.size();
 
-	camera_pts = std::vector<cv::vec3r>(m);
 	image_pts_proj = std::vector<cv::vec2r>(m);
 
 	cv::vectorr model(4);
-	cv::vectorr res(3);
 
-	cv::matrixr ARt = A * K;
-
-	real_t err = 0.0, x2_y2, u_uo, v_vo;
-
-	real_t Uo = A(0, 2);
-	real_t Vo = A(1, 2);
-
+	real_t err = 0.;
 	for(unsigned i = 0; i < m; i++) {
 
 		model[0] = model_pts[i][0];
@@ -175,27 +179,17 @@ real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
 		model[2] = 0.0;
 		model[3] = 1.0;
 
-		res = ARt * model;
+		auto proj_ptn = reproject_point(model, A, K, k);
+		image_pts_proj[i] = {proj_ptn[0], proj_ptn[1]};
 
-		auto cam = K * model;
-		camera_pts[i][0] = cam[0];
-		camera_pts[i][1] = cam[1];
-		camera_pts[i][2] = cam[2];
+		// calculate projection error
+		auto x_d = image_pts[i][0] - proj_ptn[0];
+		auto y_d = image_pts[i][1] - proj_ptn[1];
 
-		real_t r3 = res[2] ? 1. / res[2] : 1.;
-		image_pts_proj[i][0] = res[0] * r3;
-		image_pts_proj[i][1] = res[1] * r3;
+		x_d*=x_d;
+		y_d*=y_d;
 
-		x2_y2 = (image_pts_nrm[i] * image_pts_nrm[i]).sum();
-
-		u_uo = image_pts_proj[i][0] - Uo;
-		v_vo = image_pts_proj[i][1] - Vo;
-
-		image_pts_proj[i][0] = image_pts_proj[i][0] + u_uo*(k[0]*(x2_y2) + k[1]*pow(x2_y2, 2));
-		image_pts_proj[i][1] = image_pts_proj[i][1] + v_vo*(k[0]*(x2_y2) + k[1]*pow(x2_y2, 2));
-
-		err += sqrt(pow(image_pts[i][0] - image_pts_proj[i][0], 2) +
-		            pow(image_pts[i][1] - image_pts_proj[i][1], 2));
+		err += sqrt(x_d + y_d);
 	}
 
 	return err / m;
@@ -278,14 +272,14 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H) {
 	return K;
 }
 
-cv::vec2r compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm,
+cv::vectorr compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm,
                              const std::vector<std::vector<cv::vec2r>> &image_pts_proj, const cv::matrixr &A) {
 
 	ASSERT(!image_pts.empty() && !image_pts_nrm.empty() && !image_pts_proj.empty());
 	ASSERT(image_pts.front().size() == image_pts_nrm.front().size() &&
 	       image_pts.front().size() == image_pts_proj.front().size());
 
-	cv::vec2r k;
+	cv::vectorr k = {0., 0., 0., 0., 0., 0., 0., 0.};
 	real_t Uo,Vo,u_uo,v_vo, x2_y2;
 
 	unsigned n_pts = image_pts.front().size();
