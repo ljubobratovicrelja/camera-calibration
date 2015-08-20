@@ -259,7 +259,7 @@ void all_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 	}
 }
 
-int optimize_all(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
+int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
 		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect, bool no_skew, double tol) 
 {
 
@@ -330,104 +330,3 @@ int optimize_all(const std::vector<std::vector<cv::vec2r>> &image_points, const 
 
 	return info;
 }
-
-void all_reprojection_fcn1(int m, int n, double* x, double* fvec,int *iflag) {
-
-	if (*iflag == 0) {
-		return;
-	}
-
-	// calculate m_projected
-	auto A = construct_a(x);
-
-	auto k_x = x + n - 8;
-	cv::vectord k(k_x, k_x, 8, 1);
-
-	unsigned f_i = 0;
-
-	for (unsigned i = 0; i < image_all_pts.size(); ++i) {
-		cv::matrixd K(3, 4, (x + a_param_count + (i * 12)));
-		for (unsigned j = 0; j < image_all_pts[i].size(); ++j, ++f_i) {
-			
-			// pack model (world) 3D point.
-			cv::vectorr model = { model_pts[j][0], model_pts[j][1], 0.0, 1.0};
-			auto proj_ptn = reproject_point(model, A, K, k);
-
-			// calculate projection error
-			auto x_d = image_all_pts[i][j][0] - proj_ptn[0];
-			auto y_d = image_all_pts[i][j][1] - proj_ptn[1];
-
-			x_d*=x_d;
-			y_d*=y_d;
-
-			fvec[f_i] = sqrt(x_d + y_d);
-		}
-	}
-}
-
-int optimize_all(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, 
-		cv::matrixr &A, cv::matrixr &K, cv::vectorr &k, bool fixed_aspect, bool no_skew, double tol) 
-{
-
-	image_pts = const_cast<cv::vec2r*>(image_points.data());
-	model_pts = const_cast<cv::vec3r*>(model_points.data());
-
-	g_fixed_aspect = fixed_aspect;
-	g_no_skew = no_skew;
-
-	a_param_count = fixed_aspect ? 3 : 4;
-	a_param_count += no_skew ? 0 : 1;
-
-	int m = image_points.size()*image_points[0].size();
-	int n = a_param_count + 12 + 8; // A{a, b, c, u0, v0} + K + k;
-
-	int info = 0;
-
-	auto *data = new double[n];
-
-	if (fixed_aspect) {
-		if (no_skew) {
-			data[0] = (A(0, 0) + A(1, 1)) / 2;
-			data[1] = A(0, 2);
-			data[2] = A(1, 2);
-		} else {
-			data[0] = (A(0, 0) + A(1, 1)) / 2;
-			data[1] = A(0, 1);
-			data[2] = A(0, 2);
-			data[3] = A(1, 2);
-		}
-	} else {
-		if (no_skew) {
-			data[0] = A(0, 0);
-			data[1] = A(0, 2);
-			data[2] = A(1, 1);
-			data[3] = A(1, 2);
-		} else {
-			data[0] = A(0, 0);
-			data[1] = A(0, 1);
-			data[2] = A(0, 2);
-			data[3] = A(1, 1);
-			data[4] = A(1, 2);
-		}
-	}
-
-	for (unsigned i = 0; i < 12; ++i) {
-		data[a_param_count + i] = K.data_begin()[i];
-	}
-
-	auto k_str = data + (n - 8);
-	pack_k_data(k, k_str);
-
-	if((info = cv::lmdif1(all_reprojection_fcn1, m, n, data, tol))) {
-		A = construct_a(data);
-		K = cv::matrixd(3, 4, (data + a_param_count)).clone();
-		k = unpack_k_data(k_str);
-	} else {
-		std::cout << "Optimization failed." << std::endl;
-	}
-
-	delete [] data;
-
-	return info;
-}
-
