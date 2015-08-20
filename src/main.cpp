@@ -494,11 +494,7 @@ int main(int argc, char **argv) {
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
-
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
-
-		std::cout << "Homography " << i << std::endl << Hs[i] << std::endl;
 	}
 
 	auto A_p = compute_intrisics(Hs);
@@ -522,41 +518,30 @@ int main(int argc, char **argv) {
 
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
-
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
-
-		if (!skip_extrinsic_optmization)
-			optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
-
 		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_proj[i]);
-
 		std::cout << "Extrinsics " <<  i << std::endl;
 		std::cout << "\nOptimized reprojection error: " << err << std::endl;
 		std::cout << "K:\n" << K << std::endl;
-
 		Ks.push_back(K);
 	}
 
 	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
-
 	std::cout << "Init k:\n" << k << std::endl << std::endl;
 
-	if (!skip_distortion_optimization) {
-		optimize_distortion(image_points_orig, model_points, A, Ks, k); 
-		std::cout << "Optimized k:\n" << k << std::endl << std::endl;
-	}
-
 	if (!skip_optimization)
-		optimize_all(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
+		optimize_calib(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
 
 	std::cout << "\n\n**********************************************************" << std::endl;
 	std::cout << "Final Optimization Results:" << std::endl;
 	std::cout << "A:\n" << A << std::endl;
 	std::cout << "k:\n" << k << std::endl << std::endl;
 
+	real_t mean_err = 0.;
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
 		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_proj[i], k);
+		mean_err += err;
 		std::cout << "Reprojection error: " << err << std::endl << std::endl;
 
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
@@ -566,6 +551,8 @@ int main(int argc, char **argv) {
 		cv::imshow("reprojection",reproj);
 		cv::wait_key();
 	}
+
+	std::cout << "Mean reprojection error for all patterns: " << (mean_err/image_points_count) << std::endl;
 
 	std::cout << "**********************************************************" << std::endl;
 
