@@ -15,7 +15,7 @@
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
  */ 
 int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, cv::matrixr &K, double tol = 1e-14);
+		const cv::matrixr &A, cv::matrixr &K, real_t tol = 1e-14);
 
 /*!
  * @brief Optimize distortion parameters by minimizing reprojection.
@@ -32,7 +32,7 @@ int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::v
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
  */ 
 int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, const std::vector<cv::matrixr> &K, cv::vectorr&k, double tol = 1e-14);
+		const cv::matrixr &A, const std::vector<cv::matrixr> &K, cv::vectorr&k, real_t tol = 1e-14);
 /*!
  * @brief Optimize all calibration parameters.
  *
@@ -49,6 +49,6 @@ int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points,
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
  */ 
 int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect = false, bool no_skew = false, double tol = 1e-14);
+		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect = false, bool no_skew = false, real_t tol = 1e-14);
 
 #endif /* end of include guard: OPTIMIZE_HPP_OBWEIHS0 */
