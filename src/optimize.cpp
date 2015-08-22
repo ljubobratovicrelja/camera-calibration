@@ -13,14 +13,14 @@ bool g_no_skew;
 bool g_fixed_aspect;
 unsigned a_param_count;
 
-void ext_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
+void ext_reprojection_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 
 	if (*iflag == 0)
 		return;
 
 	// calculate m_projected
-	cv::matrixd A(3, 3, A_mat); 
-	cv::matrixd K(3, 4, x);
+	cv::matrixr A(3, 3, A_mat); 
+	cv::matrixr K(3, 4, x);
 
 	cv::vec2r image_pt_proj;
 
@@ -43,7 +43,7 @@ void ext_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 }
 
 int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, cv::matrixr &K, double tol) 
+		const cv::matrixr &A, cv::matrixr &K, real_t tol) 
 {
 	ASSERT(image_points.size() == model_points.size() && !image_points.empty());
 
@@ -55,7 +55,7 @@ int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::v
 	int n = 12; // K.size
 	int info;
 
-	cv::vectord _K(12);
+	cv::vectorr _K(12);
 
 	for (int i = 0; i < 12; ++i) {
 		_K[i] = K.data_begin()[i];
@@ -72,7 +72,7 @@ int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::v
 	return info;
 }
 
-void pack_k_data(const cv::vectorr &k, double data[8]) {
+void pack_k_data(const cv::vectorr &k, real_t data[8]) {
 	ASSERT(k.length() == 2 || k.length() == 4 || k.length() == 8);
 
 	switch(k.length()) {
@@ -111,7 +111,7 @@ void pack_k_data(const cv::vectorr &k, double data[8]) {
 	}
 }
 
-cv::vectorr unpack_k_data(double data[8]) {
+cv::vectorr unpack_k_data(real_t data[8]) {
 
 	cv::vectorr k(8);
 
@@ -127,14 +127,14 @@ cv::vectorr unpack_k_data(double data[8]) {
 	return k;
 }
 
-void distorion_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
+void distorion_reprojection_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 
 	if (*iflag == 0)
 		return;
 
 	// calculate m_projected
-	cv::matrixd A(3, 3, A_mat);
-	cv::vectord k(x, x, 8, 1);
+	cv::matrixr A(3, 3, A_mat);
+	cv::vectorr k(x, x, 8, 1);
 
 	unsigned f_i = 0;
 	for (unsigned i = 0; i < image_all_pts.size(); ++i) {
@@ -157,7 +157,7 @@ void distorion_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag
 }
 
 int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, const std::vector<cv::matrixr> &K, cv::vectorr &k, double tol) 
+		const cv::matrixr &A, const std::vector<cv::matrixr> &K, cv::vectorr &k, real_t tol) 
 {
 
 	ASSERT(k.length() == 2 || k.length() == 4 || k.length() == 8);
@@ -172,7 +172,7 @@ int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points,
 
 	int info = 0;
 
-	double data[8];
+	real_t data[8];
 	pack_k_data(k, data);
 
 	if((info = cv::lmdif1(distorion_reprojection_fcn, m, n, data, tol))) {
@@ -184,9 +184,9 @@ int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points,
 	return info;
 }
 
-cv::matrixd construct_a(double *x) {
+cv::matrixr construct_a(real_t *x) {
 
-	cv::matrixd A(3, 3);
+	cv::matrixr A(3, 3);
 
 	if (g_fixed_aspect) {
 
@@ -225,7 +225,7 @@ cv::matrixd construct_a(double *x) {
 	return A;
 }
 
-void all_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
+void all_reprojection_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 
 	if (*iflag == 0) {
 		return;
@@ -235,12 +235,12 @@ void all_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 	auto A = construct_a(x);
 
 	auto k_x = x + n - 8;
-	cv::vectord k(k_x, k_x, 8, 1);
+	cv::vectorr k(k_x, k_x, 8, 1);
 
 	unsigned f_i = 0;
 
 	for (unsigned i = 0; i < image_all_pts.size(); ++i) {
-		cv::matrixd K(3, 4, (x + a_param_count + (i * 12)));
+		cv::matrixr K(3, 4, (x + a_param_count + (i * 12)));
 		for (unsigned j = 0; j < image_all_pts[i].size(); ++j, ++f_i) {
 			
 			// pack model (world) 3D point.
@@ -260,7 +260,7 @@ void all_reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 }
 
 int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect, bool no_skew, double tol) 
+		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect, bool no_skew, real_t tol) 
 {
 
 	image_all_pts = image_points;
@@ -278,7 +278,7 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, cons
 
 	int info = 0;
 
-	auto *data = new double[n];
+	auto *data = new real_t[n];
 
 	if (fixed_aspect) {
 		if (no_skew) {
@@ -318,7 +318,7 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, cons
 	if((info = cv::lmdif1(all_reprojection_fcn, m, n, data, tol))) {
 		A = construct_a(data);
 		for (unsigned b = 0; b < K.size(); ++b) {
-			cv::matrixd K_(3, 4, (data + a_param_count + (b * 12)));
+			cv::matrixr K_(3, 4, (data + a_param_count + (b * 12)));
 			K[b] = K_.clone();
 		}
 		k = unpack_k_data(k_str);
