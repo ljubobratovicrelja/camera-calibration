@@ -36,7 +36,7 @@ cv::matrixr homography_solve(const std::vector<cv::vec2r> &image_points, const s
 
 //! Evaluate optmization for given data set with given function.
 int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
-                        cv::matrixr &H, double tol = 1e-14);
+                        cv::matrixr &H, real_t tol = 1e-14);
 
 /*!
  * @brief Calculate reprojection error for homography calculated using given source and target points.
