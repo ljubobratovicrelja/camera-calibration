@@ -221,7 +221,7 @@ cv::matrixr homography_solve(const std::vector<cv::vec2r> &image_points, const s
 std::vector<cv::vec2r> source_pts;
 std::vector<cv::vec3r> target_pts;
 
-void reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
+void reprojection_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 
 	if (*iflag == 0)
 		return;
@@ -250,7 +250,7 @@ void reprojection_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 }
 
 int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
-                        cv::matrixr &H, double tol) {
+                        cv::matrixr &H, real_t tol) {
 
 	source_pts = image_points;
 	target_pts = model_points;
@@ -262,7 +262,7 @@ int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::v
 
 	int info = 0;
 
-	auto *_H = new double[n];
+	auto *_H = new real_t[n];
 
 	for (int i = 0; i < 9; ++i) {
 		_H[i] = H.data_begin()[i];
