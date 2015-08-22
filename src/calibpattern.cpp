@@ -392,11 +392,11 @@ void generate_model_points(unsigned p_rows, unsigned p_cols) {
 	}
 }
 
-void calib_fix_fcn(int m, int n, double* x, double* fvec,int *iflag) {
+void calib_fix_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 	if (*iflag == 0)
 		return;
 
-	cv::matrixd p_transform(3, 3, x);
+	cv::matrixr p_transform(3, 3, x);
 
 	for (unsigned i = 0; i < model_points.size(); ++i) {
 
@@ -405,7 +405,7 @@ void calib_fix_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 		m_ptn /= m_ptn[2];
 
 		// find nearest point in image corners
-		double b_dist = m_ptn.distance(corner_points[0]);
+		real_t b_dist = m_ptn.distance(corner_points[0]);
 		int b_idx = 0;
 
 		for (unsigned j = 1; j < corner_points.size(); ++j) {
@@ -420,7 +420,7 @@ void calib_fix_fcn(int m, int n, double* x, double* fvec,int *iflag) {
 }
 
 std::vector<cv::vec2r> optmize_calib_pattern(std::vector<cv::vec2r> &image_corner_points, 
-		unsigned p_rows, unsigned p_cols, double ftol = 1e-14) {
+		unsigned p_rows, unsigned p_cols, real_t ftol = 1e-14) {
 
 	ASSERT(image_corner_points.size() >= p_rows*p_cols);
 
@@ -437,7 +437,7 @@ std::vector<cv::vec2r> optmize_calib_pattern(std::vector<cv::vec2r> &image_corne
 	int m = p_rows*p_cols;
 	int n = 9; 
 
-	cv::matrixd p_transform = cv::matrixd::eye(3);
+	cv::matrixr p_transform = cv::matrixr::eye(3);
 
 	info = cv::lmdif1(calib_fix_fcn, m, n, p_transform.data(), ftol);
 
