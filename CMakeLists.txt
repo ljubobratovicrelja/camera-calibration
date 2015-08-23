@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 2.8)
 set(OUT_EXEC "camera_calibration")
 file(GLOB SRC_FILES "./src/*.cpp" "./src/*.c")
 
+set(WITH_GUI TRUE CACHE BOOL "Is the LibCV compiled with gui?")
+
 if (WIN32)
 	set(CMAKE_CXX_FLAGS "/fopenmp /W3")
 	set(CMAKE_CXX_FLAGS_DEBUG "/DEBUG")
@@ -27,6 +29,10 @@ if (CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES DEBUG)
 elseif(CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RELEASE)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
 endif(CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES DEBUG)
+
+if (NOT ${WITH_GUI})
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_IGNORE_GUI")
+endif(NOT ${WITH_GUI})
 
 if(NOT (IS_DIRECTORY ${LIBCV_INCLUDE_DIR}))
 	message( FATAL_ERROR "LibCV include directory is not valid." )
