@@ -114,7 +114,7 @@ cv::contouri detect_line(unsigned startIdx, unsigned queryIdx, std::vector<cv::v
 
 		for (auto nn : nns[queryIdx]) {
 			
-			if (nn == queryIdx or nn == startIdx) {
+			if (nn == queryIdx || nn == startIdx) {
 				continue;
 			}
 
@@ -167,7 +167,7 @@ cv::contouri detect_line(unsigned startIdx, unsigned queryIdx, std::vector<cv::v
 
 	unsigned line_size = line.point_length();
 
-	if (line_size == rows or line_size == cols) {
+	if (line_size == rows || line_size == cols) {
 #ifdef LINE_DEBUG
 		cv::draw_contour(im, line, hit_color);
 		cv::imshow("line detect", im);
@@ -319,7 +319,7 @@ std::vector<cv::vec2r> detect_chessboard(const std::vector<cv::contouri> &contou
 						continue;
 					}
 					cv::vec2r c_q_vec = contours[i].get_contour_vector();
-					if ((p == contours[i][0] or p == contours[i][contours[i].point_length()-1])) {
+					if ((p == contours[i][0] || p == contours[i][contours[i].point_length()-1])) {
 						if (hip_chess.empty()) {
 							hip_chess.push_back(contours[i]);
 						} else {

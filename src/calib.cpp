@@ -203,8 +203,8 @@ cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts,
 	cv::matrix3b reprojection = cv::matrix3b::zeros(im_h*scale,im_w*scale);
 
 	for (unsigned i = 0; i < image_pts.size(); ++i) {
-		cv::draw_circle(reprojection, image_pts[i]*scale, 3, {0, 0, 255});
-		cv::draw_circle(reprojection, image_pts_proj[i]*scale, 5, {255, 0, 0});
+		cv::draw_circle(reprojection, image_pts[i]*scale, 3, cv::vec3b(0, 0, 255));
+		cv::draw_circle(reprojection, image_pts_proj[i]*scale, 5, cv::vec3b(255, 0, 0));
 	}
 
 	return reprojection;

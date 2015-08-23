@@ -108,7 +108,7 @@ void pattern_detection(const std::vector<cv::matrixr> &pattern_ims, const std::s
 			pattern = sub_pixel_detect(pattern, im_r, {5, 5});
 
 			cv::matrix3r im_draw = im_r.clone();
-			draw_chessboard(im_draw, pattern, {255., 0., 0.});
+			draw_chessboard(im_draw, pattern, cv::vec3r(255.f, 0.f, 0.f));
 
 			std::cout << "Accept pattern? (Y/n)" << std::endl;
 
