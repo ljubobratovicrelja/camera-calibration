@@ -110,6 +110,7 @@ void pattern_detection(const std::vector<cv::matrixr> &pattern_ims, const std::s
 			cv::matrix3r im_draw = im_r.clone();
 			draw_chessboard(im_draw, pattern, cv::vec3r(255.f, 0.f, 0.f));
 
+#ifndef CV_IGNORE_GUI
 			std::cout << "Accept pattern? (Y/n)" << std::endl;
 
 			cv::imshow("pattern", im_draw);
@@ -122,6 +123,10 @@ void pattern_detection(const std::vector<cv::matrixr> &pattern_ims, const std::s
 				std::cout << "Pattern accepted." << std::endl;
 				patterns.push_back(pattern);
 			}
+#else
+			std::cout << "Pattern found." << std::endl;
+			patterns.push_back(pattern);
+#endif
 		} else {
 			std::cout << "Pattern not found" << std::endl;
 			continue;
@@ -546,10 +551,12 @@ int main(int argc, char **argv) {
 
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
 		auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
-
 		cv::imwrite(reproj, "reprojection_" + std::to_string(i) + ".png");
+
+#ifndef CV_IGNORE_GUI
 		cv::imshow("reprojection",reproj);
 		cv::wait_key();
+#endif
 	}
 
 	std::cout << "Mean reprojection error for all patterns: " << (mean_err/image_points_count) << std::endl;
