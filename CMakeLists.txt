@@ -5,6 +5,7 @@ set(OUT_EXEC "camera_calibration")
 file(GLOB SRC_FILES "./src/*.cpp" "./src/*.c")
 
 set(WITH_GUI TRUE CACHE BOOL "Is the LibCV compiled with gui?")
+set(DOUBLE_REAL TRUE CACHE BOOL "Should the real type be double(true) or float(false). - should be same as LibCV")
 
 if (WIN32)
 	set(CMAKE_CXX_FLAGS "/fopenmp /W3")
@@ -33,6 +34,10 @@ endif(CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES DEBUG)
 if (NOT ${WITH_GUI})
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_IGNORE_GUI")
 endif(NOT ${WITH_GUI})
+
+if(${DOUBLE_REAL})
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCV_DOUBLE_REAL")
+endif(${DOUBLE_REAL})
 
 if(NOT (IS_DIRECTORY ${LIBCV_INCLUDE_DIR}))
 	message( FATAL_ERROR "LibCV include directory is not valid." )
