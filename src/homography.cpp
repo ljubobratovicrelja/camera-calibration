@@ -268,7 +268,7 @@ int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::v
 		_H[i] = H.data_begin()[i];
 	}
 
-	info = cv::lmdif1(reprojection_fcn, m, n, _H, tol);
+	info = cv::lmdif(reprojection_fcn, m, n, _H, 1000, tol, 1.e-5, 0, 1e-8);
 
 	for (int i = 0; i < 9; ++i) {
 		H.data_begin()[i] = _H[i];
