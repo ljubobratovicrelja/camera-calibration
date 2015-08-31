@@ -230,7 +230,7 @@ int main(int argc, char **argv) {
 	bool skip_optimization = false;
 	bool skip_extrinsic_optmization = false;
 	bool skip_distortion_optimization = false;
-	double ftol = 1e-14;
+	double ftol = 1e-05;
 	double model_square_size = 3.; // 3cm is default size of the chessboard calibration pattern printed on A4
 	int p_rows = 6;
 	int p_cols = 9;
@@ -500,7 +500,7 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
+		//homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
 	}
 
 	auto A_p = compute_intrisics(Hs);
