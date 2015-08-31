@@ -522,21 +522,25 @@ int main(int argc, char **argv) {
 
 	std::vector<cv::matrixr> Ks;
 
-
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
-		optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
+
+		if (!skip_extrinsic_optmization)
+			optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
 
 		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_proj[i]);
 		std::cout << "Extrinsics " <<  i << std::endl;
 		std::cout << "\nOptimized reprojection error: " << err << std::endl;
 		std::cout << "K:\n" << K << std::endl;
+
 		Ks.push_back(K);
 	}
 
 	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
-	optimize_distortion(image_points_orig, model_points, A, Ks, k, ftol);
-	std::cout << "Init k:\n" << k << std::endl << std::endl;
+	if (!skip_distortion_optimization)
+		optimize_distortion(image_points_orig, model_points, A, Ks, k, ftol);
+
+	std::cout << "k:\n" << k << std::endl << std::endl;
 
 	if (!skip_optimization)
 		optimize_calib(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
