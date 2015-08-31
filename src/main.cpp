@@ -500,6 +500,7 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
+		homography_optimize(image_points_nrm[i], model_points, Hs[i]);
 	}
 
 	auto A_p = compute_intrisics(Hs);
@@ -524,6 +525,8 @@ int main(int argc, char **argv) {
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
+		optimize_extrinsics(image_points_orig[i], model_points, A, K);
+
 		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_proj[i]);
 		std::cout << "Extrinsics " <<  i << std::endl;
 		std::cout << "\nOptimized reprojection error: " << err << std::endl;
