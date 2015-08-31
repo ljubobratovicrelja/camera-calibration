@@ -275,7 +275,6 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, cons
 
 	int m = image_points.size()*image_points[0].size();
 	int n = a_param_count + (K.size()*12) + 8; // A{a, b, c, u0, v0} + K + k;
-
 	int info = 0;
 
 	auto *data = new real_t[n];
@@ -330,3 +329,4 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, cons
 
 	return info;
 }
+
