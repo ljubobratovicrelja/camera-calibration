@@ -227,8 +227,8 @@ void reprojection_fcn(int m, int n, real_t* x, real_t* fvec,int *iflag) {
 		return;
 
 	// calculate m_projected
-	cv::matrixd _H(3, 3, x); // borrow x and form matrix
-	cv::matrixd ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
+	cv::matrixr _H(3, 3, x); // borrow x and form matrix
+	cv::matrixr ptn(3, 1), p_ptn(3, 1), res_ptn(3, 1);
 
 	for (int i = 0; i < m; ++i) {
 		ptn(0, 0) = target_pts[i][0]; // model point
