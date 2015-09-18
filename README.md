@@ -40,7 +40,7 @@ https://github.com/ljubobratovicrelja/libcv/releases/tag/v0.1
 
 ## Compilation
 
-Compilation should be straight-forward on any linux distro using GCC with c++11 support, 
+Compilation should be straight-forward on any linux distro using GCC with c++14 support, 
 and is tested on Windows 8 using VC12. See LibCV readme for more info on compilation.
 As long as the LibCV is compiled, compilation of this project should be easy using CMake (GUI).
  
