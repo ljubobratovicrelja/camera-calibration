@@ -214,6 +214,60 @@ bool read_custom_data(const std::string &filepath, std::vector<std::vector<cv::v
 	return true;
 }
 
+cv::image_array undistort_image(const cv::image_array &image, const cv::matrixr &A, const cv::vectorr &k) {
+
+	cv::image_array undist = cv::matrix3b::zeros(image.rows(), image.cols());
+
+	auto fx = A(0, 0);
+	auto fy = A(1, 1);
+	auto cx = A(0, 2);
+	auto cy = A(1, 2);
+
+#pragma omp parallel for schedule(dynamic)
+	for (unsigned i = 0; i < image.rows(); ++i) {
+		for (unsigned j = 0; j < image.cols(); ++j) {
+
+			cv::vec3r proj_ptn = {(static_cast<real_t>(j) - cx)/fx, (static_cast<real_t>(i) - cy)/fy, 1.};
+
+			if (k.length() == 4) {
+				real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
+				real_t d_r = (1 + k[0]*r2 + k[1]*(r2*r2)); // radial distortion
+				real_t d_t = 2 * k[2]*proj_ptn[0]*proj_ptn[1] + k[3]*(r2 + 2*(proj_ptn[0]*proj_ptn[0])); // tan distortion
+				proj_ptn[0] = proj_ptn[0]*d_r+ d_t;
+				proj_ptn[1] = proj_ptn[1]*d_r+ d_t;
+			} else if (k.length() == 8) {
+				real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
+				real_t r3 = proj_ptn[0]*proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1]*proj_ptn[1] + 1; 
+				real_t k_u = 1 + k[0]*r2 + k[1]*(r2*r2) + k[2]*(r3*r3);
+				real_t k_d = 1 + k[3]*r2 + k[4]*(r2*r2) + k[5]*(r3*r3);
+				real_t d_r = (k_d) ? k_u / k_d : 0.; // radial distortion
+				real_t d_t = 2 * k[2]*proj_ptn[0]*proj_ptn[1] + k[3]*(r2 + 2*(proj_ptn[0]*proj_ptn[0])); // tan distortion
+				proj_ptn[0] = proj_ptn[0]*d_r+ d_t;
+				proj_ptn[1] = proj_ptn[1]*d_r+ d_t;
+			}
+
+			/*
+			auto pp_vec = A * cv::vectorr{proj_ptn[0], proj_ptn[1], proj_ptn[2]};
+			cv::vec2r norm_pp_vec = {pp_vec[0] / pp_vec[2], pp_vec[1] / pp_vec[2] };
+			*/
+
+			auto x_undist = proj_ptn[0]*fx + cx;
+			auto y_undist = proj_ptn[1]*fy + cy;
+
+			if (x_undist < 0 || x_undist >= image.cols() || 
+				y_undist < 0 || y_undist >= image.rows()) {
+				continue;
+			}
+
+			undist.at<byte>(i, j, 0) = image.at<byte>(y_undist, x_undist, 0);
+			undist.at<byte>(i, j, 1) = image.at<byte>(y_undist, x_undist, 1);
+			undist.at<byte>(i, j, 2) = image.at<byte>(y_undist, x_undist, 2);
+		}
+	}
+
+	return undist;
+}
+
 int main(int argc, char **argv) {
 
 	std::cout << "********************************************" << std::endl;
@@ -500,7 +554,7 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		ASSERT(image_points_nrm[i].size() == model_points.size());
 		Hs[i] = homography_solve(image_points_nrm[i], model_points);
-		//homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
+		homography_optimize(image_points_nrm[i], model_points, Hs[i], ftol);
 	}
 
 	auto A_p = compute_intrisics(Hs);
@@ -551,6 +605,7 @@ int main(int argc, char **argv) {
 	std::cout << "k:\n" << k << std::endl << std::endl;
 
 	real_t mean_err = 0.;
+
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
 		auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_proj[i], k);
@@ -559,6 +614,9 @@ int main(int argc, char **argv) {
 
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
 		auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
+
+		continue;
+
 		cv::imwrite(reproj, "reprojection_" + std::to_string(i) + ".png");
 
 #ifndef CV_IGNORE_GUI
@@ -566,6 +624,16 @@ int main(int argc, char **argv) {
 		cv::wait_key();
 #endif
 	}
+
+	/*
+	auto img = cv::imread("/home/relja/CalibIm3.jpg");
+
+	if (img) {
+		
+		auto undist = undistort_image(img, A, k);
+		cv::imwrite(undist, "/home/relja/CalibIm3_undistort.jpg");
+	}
+	*/
 
 	std::cout << "Mean reprojection error for all patterns: " << (mean_err/image_points_count) << std::endl;
 
