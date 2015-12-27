@@ -35,7 +35,7 @@ cv::matrixr pack_v(const std::vector<cv::matrixr> &Hs) {
 cv::vectorr solve_b(const cv::matrixr &V) {
 
 	cv::matrixr U, S, Vt;
-	cv::svd_decomp(V, U, S, Vt);
+	cv::sv_decomp(V, U, S, Vt);
 
 	return Vt.transposed().col(Vt.cols() - 1);
 }
@@ -93,6 +93,7 @@ cv::matrixr get_intrinsic_mat(const cv::matrixr &B) {
 }
 
 std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, real_t square_size) {
+
 	std::vector<cv::vec3r> obj_pts;
 	obj_pts.reserve(rows*cols);
 
@@ -132,7 +133,12 @@ cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, 
 	auto proj_ptn = K * world_ptn; 
 	proj_ptn /= proj_ptn[2]; 
 
-	if (k.length() == 4) {
+	if (k.length() == 2) {
+		real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
+		real_t d_r = (1 + k[0]*r2 + k[1]*(r2*r2)); // radial distortion
+		proj_ptn[0] = proj_ptn[0]*d_r;
+		proj_ptn[1] = proj_ptn[1]*d_r;
+	} else if (k.length() == 4) {
 		real_t r2 = proj_ptn[0]*proj_ptn[0] + proj_ptn[1]*proj_ptn[1] + 1; 
 		real_t d_r = (1 + k[0]*r2 + k[1]*(r2*r2)); // radial distortion
 		real_t d_t = 2 * k[2]*proj_ptn[0]*proj_ptn[1] + k[3]*(r2 + 2*(proj_ptn[0]*proj_ptn[0])); // tan distortion
@@ -203,8 +209,8 @@ cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts,
 	cv::matrix3b reprojection = cv::matrix3b::zeros(im_h*scale,im_w*scale);
 
 	for (unsigned i = 0; i < image_pts.size(); ++i) {
-		cv::draw_circle(reprojection, image_pts[i]*scale, 3, cv::vec3b(0, 0, 255));
-		cv::draw_circle(reprojection, image_pts_proj[i]*scale, 5, cv::vec3b(255, 0, 0));
+		cv::draw_circle(reprojection, image_pts[i]*scale, 5, cv::vec3b(255, 255, 255));
+		cv::draw_circle(reprojection, image_pts_proj[i]*scale, 8, cv::vec3b(0, 255, 0));
 	}
 
 	return reprojection;
@@ -251,7 +257,7 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H) {
 
 	// reorthogonalize R
 	cv::matrixr U, S, Vt, Rt;
-	cv::svd_decomp(R, U, S, Vt);
+	cv::sv_decomp(R, U, S, Vt);
 
 	R = U * Vt;
 
