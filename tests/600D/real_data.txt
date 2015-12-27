@@ -1,0 +1,6 @@
+sensor size - 22.3mm x 14.9mm
+image size - 5184x3456
+focal length - 50.0mm
+
+focal width in pixels = 5184*50/28.7 = 9031.358885
+focal height in pixels = 3456*50/19.1 = 9047.12041885
