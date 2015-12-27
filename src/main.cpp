@@ -2,6 +2,7 @@
 #include <gui.hpp>
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <cstring>
 
@@ -268,6 +269,41 @@ cv::image_array undistort_image(const cv::image_array &image, const cv::matrixr 
 	return undist;
 }
 
+void write_results(const cv::matrixr &A, const cv::vectorr &k, const std::vector<cv::matrixr> Ks, const std::string &path = ".") {
+
+	std::ofstream a_stream(path + "/a.out");
+	a_stream << std::setprecision(std::numeric_limits<real_t>::digits10+1);
+
+	auto a = A.data();
+	unsigned i;
+
+	a_stream << a[0];
+	for (i = 1; i < 9; ++i) {
+		a_stream << "," << a[i];
+	}
+
+	a_stream << std::endl;
+
+	if (k) {
+		a_stream << k[0];
+		for (i = 1; i < k.length(); ++i) {
+			a_stream << "," << k[i];
+		}
+	}
+
+	a_stream << std::endl;
+
+	for (auto K : Ks) {
+		auto k = K.data();
+		a_stream << k[0];
+		for (i = 1; i < 12; ++i) {
+			a_stream << "," << k[i];
+		}
+
+		a_stream << std::endl;
+	}
+}
+
 int main(int argc, char **argv) {
 
 	std::cout << "********************************************" << std::endl;
@@ -288,6 +324,7 @@ int main(int argc, char **argv) {
 	double model_square_size = 3.; // 3cm is default size of the chessboard calibration pattern printed on A4
 	int p_rows = 6;
 	int p_cols = 9;
+	bool no_distortion = false;
 
 	// ================= PARSE ARGUMENTS, INITIALIZE PROGRAM ================== //
 
@@ -383,7 +420,7 @@ int main(int argc, char **argv) {
 						std::cout << "Pattern cols must be > 2" << std::endl;
 						p_cols = 6;
 					}
-				}
+				} 
 			}
 		}
 
@@ -521,7 +558,10 @@ int main(int argc, char **argv) {
 				skip_extrinsic_optmization = true;
 			} else if (_arg == "--skip-dist-opt") {
 				skip_distortion_optimization = true;
-			}
+			} else if (argv[i] == std::string ("--no-dist")) {
+				no_distortion = true;
+		}
+
 		}
 	}
 
@@ -568,6 +608,16 @@ int main(int argc, char **argv) {
 	std::cout << A_p << std::endl;
 
 	auto A = denormalize_intrinsics(A_p, N);
+
+	if (fixed_aspect) {
+		auto asp = (A(0, 0) + A(1, 1)) / 2.;
+		A(0, 0) = A(1, 1) = asp;
+	}
+
+	if (no_skew) {
+		A(0, 1) = 0.0;
+	}
+
 	std::cout << "Denormalized intrinsics matrix A:" << std::endl;
 	std::cout << A << std::endl;
 
@@ -578,26 +628,29 @@ int main(int argc, char **argv) {
 
 	for (unsigned i = 0; i < image_points_count; ++i) {
 		auto K = compute_extrinsics(A, N_inv*Hs[i]);
-
-		if (!skip_extrinsic_optmization)
-			optimize_extrinsics(image_points_orig[i], model_points, A, K, ftol);
-
 		auto err = calc_reprojection(A, K, model_points, image_points_orig[i], image_points_proj[i]);
 		std::cout << "Extrinsics " <<  i << std::endl;
-		std::cout << "\nOptimized reprojection error: " << err << std::endl;
+		std::cout << "\nReprojection error: " << err << std::endl;
 		std::cout << "K:\n" << K << std::endl;
 
 		Ks.push_back(K);
 	}
 
-	auto k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A);
-	if (!skip_distortion_optimization)
-		optimize_distortion(image_points_orig, model_points, A, Ks, k, ftol);
+	cv::vectorr k;
 
-	std::cout << "k:\n" << k << std::endl << std::endl;
-
-	if (!skip_optimization)
+	if (!skip_optimization) 
 		optimize_calib(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
+
+	if (!no_distortion) {
+		k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A)(0, 1);
+		std::cout << "k:\n" << k << std::endl << std::endl;
+
+		if (!skip_distortion_optimization) {
+			optimize_calib(image_points_orig, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
+		}
+	} else {
+		std::cout << "Distortion skipped" << std::endl;
+	}
 
 	std::cout << "\n\n**********************************************************" << std::endl;
 	std::cout << "Final Optimization Results:" << std::endl;
@@ -614,8 +667,6 @@ int main(int argc, char **argv) {
 
 		real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
 		auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
-
-		continue;
 
 		cv::imwrite(reproj, "reprojection_" + std::to_string(i) + ".png");
 
@@ -634,6 +685,8 @@ int main(int argc, char **argv) {
 		cv::imwrite(undist, "/home/relja/CalibIm3_undistort.jpg");
 	}
 	*/
+
+	write_results(A, k, Ks);
 
 	std::cout << "Mean reprojection error for all patterns: " << (mean_err/image_points_count) << std::endl;
 
