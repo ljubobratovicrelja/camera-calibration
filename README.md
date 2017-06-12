@@ -6,7 +6,7 @@
 Implementation and revision of Zhengyou Zhang's algorithm for camera calibration, 
 *Flexible Camera Calibration By Viewing a Plane From Unknown Orientations*, 1999.
 
-[Here is compiled version for Windows 8, compiled using Visual Studio 2013.](https://www.dropbox.com/s/tot12zm0qi2rsl1/camera_calibration_vc12_x64.zip?dl=0)
+[Here is compiled version for Windows 8, compiled using Visual Studio 2013.](https://www.dropbox.com/s/k3i2dy4lhbp4dt6/camera_calibration_vc12_x64.zip?dl=0)
 
 All needed dlls should be there - if there's any missing, please let me know via email, it would help a lot!
 
