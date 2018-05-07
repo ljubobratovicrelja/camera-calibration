@@ -9,7 +9,7 @@ set(DOUBLE_REAL TRUE CACHE BOOL "Should the real type be double(true) or float(f
 
 if (WIN32)
 	set(CMAKE_CXX_FLAGS "/fopenmp /W3")
-	set(CMAKE_CXX_FLAGS_DEBUG "/DEBUG")
+	set(CMAKE_CXX_FLAGS_DEBUG "/DDEBUG /Zi")
 	set(CMAKE_CXX_FLAGS_RELEASE "/Ox /DNDEBUG")
 
 	set(LIBCV_INCLUDE_DIR "/usr/local/include/cv" CACHE PATH "Path to the libcv include directory")
