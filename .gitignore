@@ -2,3 +2,4 @@
 ./.vimrc
 ./camera_calibration.vim
 build/ 
+.vscode/
