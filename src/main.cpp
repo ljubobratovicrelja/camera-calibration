@@ -204,16 +204,6 @@ int main(int argc, char **argv) {
 #endif
     }
 
-    /*
-    auto img = cv::imread("/home/relja/CalibIm3.jpg");
-
-    if (img) {
-        
-        auto undist = undistort_image(img, A, k);
-        cv::imwrite(undist, "/home/relja/CalibIm3_undistort.jpg");
-    }
-    */
-
     write_results(A, k, Ks);
 
     std::cout << "Mean reprojection error for all patterns: " << (mean_err/image_points_count) << std::endl;
