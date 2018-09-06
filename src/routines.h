@@ -14,14 +14,10 @@
     @param mag_thresh Distance between two neighbouring points in the pattern.
     @param nn_count Number of neighbouring points to be considered while searching the pattern.
 */
-void
-pattern_detection
-(
-    const std::vector<cv::matrixr> &pattern_ims,
-    const std::string &out_path,
-    unsigned p_rows,
-    unsigned p_cols,
-    real_t ang_thresh,
-    real_t mag_thresh,
-    unsigned nn_count
-);
+void pattern_detection(const std::vector<cv::matrixr>& pattern_ims,
+                       const std::string& out_path,
+                       unsigned p_rows,
+                       unsigned p_cols,
+                       real_t ang_thresh,
+                       real_t mag_thresh,
+                       unsigned nn_count);

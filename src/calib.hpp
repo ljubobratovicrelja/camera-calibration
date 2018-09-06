@@ -1,4 +1,3 @@
-
 #ifndef CALIB_HPP_Q5H9DDXY
 #define CALIB_HPP_Q5H9DDXY
 
@@ -33,7 +32,7 @@ std::vector<cv::vec3r> calculate_object_points(unsigned rows, unsigned cols, rea
  * [0		2/h		-1
  * [0		0		1]
  */
-cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> > &patterns, unsigned w, unsigned h);
+cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> >& patterns, unsigned w, unsigned h);
 
 /*!
  * @brief Denormalize intrinsic matrix.
@@ -44,7 +43,7 @@ cv::matrixr normalize_image_points(std::vector<std::vector<cv::vec2r> > &pattern
  * @return
  * De-normalized intrinsic matrix.
  */
-cv::matrixr denormalize_intrinsics(const cv::matrixr &A_p, const cv::matrixr &N);
+cv::matrixr denormalize_intrinsics(const cv::matrixr& A_p, const cv::matrixr& N);
 
 /*!
  * @brief Calculate reprojection for given world (model) point.
@@ -54,7 +53,7 @@ cv::matrixr denormalize_intrinsics(const cv::matrixr &A_p, const cv::matrixr &N)
  * @param K extrinsic matrix [R | t] (3x4)
  * @param k radial and tangential distortion cofficients. [k1, k2, (k3, k4, k5, k6), p1, p2]
  */
-cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, const cv::matrixr &K, const cv::vectorr &k);
+cv::vectorr reproject_point(const cv::vectorr& world_ptn, const cv::matrixr& A, const cv::matrixr& K, const cv::vectorr& k);
 /*!
  * @brief Calculate reprojection error using given intrinsic and extrinsic matrices, and image and world points
  * used to calculate those.
@@ -64,13 +63,16 @@ cv::vectorr reproject_point(const cv::vectorr &world_ptn, const cv::matrixr &A, 
  * @param model_pts world points of the pattern used for calibration.
  * @param image_pts image points of the pattern used for calibration.
  * @param image_pts_proj vector of points where reprojected points will be stored.
- * 
- * @return 
+ *
+ * @return
  * square error of reprojection.
  */
-real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
-                               const std::vector<cv::vec3r> &model_pts, const std::vector<cv::vec2r> &image_pts,
-                               std::vector<cv::vec2r> &image_pts_proj, const cv::vectorr &k = cv::vectorr());
+real_t calc_reprojection(const cv::matrixr& A,
+                         const cv::matrixr& K,
+                         const std::vector<cv::vec3r>& model_pts,
+                         const std::vector<cv::vec2r>& image_pts,
+                         std::vector<cv::vec2r>& image_pts_proj,
+                         const cv::vectorr& k = cv::vectorr());
 
 /*!
  * @brief Compute intrinsic 3x3 matrix A from set of homography matrices calculated using calibration patterns.
@@ -80,18 +82,18 @@ real_t calc_reprojection(const cv::matrixr &A, const cv::matrixr &K,
  * @return
  * 3x3 intrinsic matrix A.
  */
-cv::matrixr compute_intrisics(const std::vector<cv::matrixr> &Hs);
+cv::matrixr compute_intrisics(const std::vector<cv::matrixr>& Hs);
 
 /*!
  * @brief Compute extrinsic 3x4 matrix using intrisic matrix and homogaphy matrix.
- * 
+ *
  * @param A intrinsic 3x3 matrix.
  * @param H homography which relates one of pattern image corner points to world points of the pattern.
  *
  * @return
  * 3x4 extrinsic matrix.
  */
-cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H);
+cv::matrixr compute_extrinsics(const cv::matrixr& A, const cv::matrixr& H);
 
 /*!
  * @brief Compute lens distortion parameters k1, and k2.
@@ -104,8 +106,10 @@ cv::matrixr compute_extrinsics(const cv::matrixr &A, const cv::matrixr &H);
  * @return
  * 2d real vector with [k1, k2] as values.
  */
-cv::vectorr compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_pts, const std::vector<std::vector<cv::vec2r>> &image_pts_nrm,
-                             const std::vector<std::vector<cv::vec2r>> &image_pts_proj, const cv::matrixr &A);
+cv::vectorr compute_distortion(const std::vector<std::vector<cv::vec2r> >& image_pts,
+                               const std::vector<std::vector<cv::vec2r> >& image_pts_nrm,
+                               const std::vector<std::vector<cv::vec2r> >& image_pts_proj,
+                               const cv::matrixr& A);
 
 /*!
  * @brief Draw the reprojected points, from world to image plane, using calculated camera parameters.
@@ -117,9 +121,11 @@ cv::vectorr compute_distortion(const std::vector<std::vector<cv::vec2r>> &image_
  * @param im_w image width
  * @param im_h image height
  */
-cv::matrix3b draw_reprojection(const std::vector<cv::vec2r> &image_pts, 
-		const std::vector<cv::vec2r > &image_pts_proj, unsigned im_w, unsigned im_h, real_t scale = 1.0);
+cv::matrix3b draw_reprojection(const std::vector<cv::vec2r>& image_pts,
+                               const std::vector<cv::vec2r>& image_pts_proj,
+                               unsigned im_w,
+                               unsigned im_h,
+                               real_t scale = 1.0);
 
 
 #endif /* end of include guard: CALIB_HPP_Q5H9DDXY */
-

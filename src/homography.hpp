@@ -9,10 +9,11 @@
 
 
 enum H_calc_alg {
-	HOMOGRAPHY_8_POINT, //!< 8-point algorithm.
-	HOMOGRAPHY_LEAST_SQUARES, //!< Least squares homography solver.
-	HOMOGRAPHY_DLT //!< Normalized direct linear transformation homography solver.
+    HOMOGRAPHY_8_POINT,     // !< 8-point algorithm.
+    HOMOGRAPHY_LEAST_SQUARES,     // !< Least squares homography solver.
+    HOMOGRAPHY_DLT     // !< Normalized direct linear transformation homography solver.
 };
+
 
 /*
  * @brief Solve homography using non-normalized 8-point algorithm.
@@ -32,11 +33,15 @@ enum H_calc_alg {
  * @return
  * cv::matrixr 3x3 homography matrix.
  */
-cv::matrixr homography_solve(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, H_calc_alg alg = HOMOGRAPHY_8_POINT);
+cv::matrixr homography_solve(const std::vector<cv::vec2r>& image_points,
+                             const std::vector<cv::vec3r>& model_points,
+                             H_calc_alg alg = HOMOGRAPHY_8_POINT);
 
-//! Evaluate optmization for given data set with given function.
-int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points,
-                        cv::matrixr &H, real_t tol = 1e-14);
+// ! Evaluate optmization for given data set with given function.
+int homography_optimize(const std::vector<cv::vec2r>& image_points,
+                        const std::vector<cv::vec3r>& model_points,
+                        cv::matrixr& H,
+                        real_t tol = 1e-14);
 
 /*!
  * @brief Calculate reprojection error for homography calculated using given source and target points.
@@ -45,10 +50,11 @@ int homography_optimize(const std::vector<cv::vec2r> &image_points, const std::v
  * @param source_pts 2D source image points used to compute given homography.
  * @param target_pts 3D target world points used to compute given homography.
  *
- * @return 
+ * @return
  * Mean distance error from reprojected points using given homogrphy matrix.
  */
-real_t calc_h_reprojection_error(const cv::matrixr &H, const std::vector<cv::vec2r> &source_pts, const std::vector<cv::vec3r> &target_pts);
+real_t calc_h_reprojection_error(const cv::matrixr& H,
+                                 const std::vector<cv::vec2r>& source_pts,
+                                 const std::vector<cv::vec3r>& target_pts);
 
 #endif /* end of include guard: HOMOGRAPHY_HPP_ERDRJZXL */
-
