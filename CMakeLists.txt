@@ -2,14 +2,14 @@ project(camera_calibration)
 cmake_minimum_required(VERSION 2.8)
 
 set(OUT_EXEC "camera_calibration")
-file(GLOB SRC_FILES "./src/*.cpp" "./src/*.c")
+file(GLOB SRC_FILES "./src/*.c*" "./src/*.h*")
 
 set(WITH_GUI TRUE CACHE BOOL "Is the LibCV compiled with gui?")
 set(DOUBLE_REAL TRUE CACHE BOOL "Should the real type be double(true) or float(false). - should be same as LibCV")
 
 if (WIN32)
 	set(CMAKE_CXX_FLAGS "/fopenmp /W3")
-	set(CMAKE_CXX_FLAGS_DEBUG "/DEBUG")
+	set(CMAKE_CXX_FLAGS_DEBUG "/DDEBUG /Zi /Od")
 	set(CMAKE_CXX_FLAGS_RELEASE "/Ox /DNDEBUG")
 
 	set(LIBCV_INCLUDE_DIR "/usr/local/include/cv" CACHE PATH "Path to the libcv include directory")
@@ -24,6 +24,8 @@ else(WIN32)
 	set(LIBCV_LIB "cv.lib" CACHE FILEPATH "Path to the libcv lib file.")
 
 endif(WIN32)
+
+find_package(CMINPACK)
 
 if (CMAKE_BUILD_TYPE MATCHES Debug OR CMAKE_BUILD_TYPE MATCHES DEBUG)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG}")
@@ -50,9 +52,9 @@ if(NOT (EXISTS  ${LIBCV_LIB}))
 	message( FATAL_ERROR "LibCV lib file is not valid." )
 endif(NOT (EXISTS ${LIBCV_LIB}))
 
-include_directories(${LIBCV_INCLUDE_DIR})
+include_directories(${CMINPACK_INCLUDE_DIR} ${LIBCV_INCLUDE_DIR})
 
 add_executable(${OUT_EXEC} ${SRC_FILES})
-target_link_libraries(${OUT_EXEC} ${LIBCV_LIB})
+target_link_libraries(${OUT_EXEC} ${LIBCV_LIB} ${CMINPACK_LIBRARY})
 
 
