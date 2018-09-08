@@ -13,9 +13,12 @@
  * @param A Intrinsic matrix 3x3.
  * @param K Initial extrinsic matrix.
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
- */ 
-int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, cv::matrixr &K, real_t tol = 1e-14);
+ */
+int optimize_extrinsics(const std::vector<cv::vec2r>& image_points,
+                        const std::vector<cv::vec3r>& model_points,
+                        const cv::matrixr& A,
+                        cv::matrixr& K,
+                        real_t tol = 1e-14);
 
 /*!
  * @brief Optimize distortion parameters by minimizing reprojection.
@@ -30,9 +33,14 @@ int optimize_extrinsics(const std::vector<cv::vec2r> &image_points, const std::v
  *	8 - [k1, k2, k3, k4, k5, k6, p1, p2]
  * Returned value is always 8 point vector with all parameters. For every non-given parameter zero is set as initial value.
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
- */ 
-int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		const cv::matrixr &A, const std::vector<cv::matrixr> &K, cv::vectorr&k, real_t tol = 1e-14);
+ */
+int optimize_distortion(const std::vector<std::vector<cv::vec2r> >& image_points,
+                        const std::vector<std::vector<cv::vec2r> >& image_points_nrm,
+                        const std::vector<cv::vec3r>& model_points,
+                        const cv::matrixr& A,
+                        const std::vector<cv::matrixr>& K,
+                        cv::vectorr& k,
+                        real_t tol = 1e-14);
 /*!
  * @brief Optimize all calibration parameters.
  *
@@ -47,8 +55,15 @@ int optimize_distortion(const std::vector<std::vector<cv::vec2r>> &image_points,
  * @param fixed_aspect Force fixed aspect ration (alpha = beta) in optimization.
  * @param no_skew Force zero skew (c) in optimization.
  * @param tol Error tolerance used in Levenberg-Marquard optimization algorithm.
- */ 
-int optimize_calib(const std::vector<std::vector<cv::vec2r>> &image_points, const std::vector<cv::vec3r> &model_points, 
-		cv::matrixr &A, std::vector<cv::matrixr> &K, cv::vectorr &k, bool fixed_aspect = false, bool no_skew = false, real_t tol = 1e-14);
+ */
+int optimize_calib(const std::vector<std::vector<cv::vec2r> >& image_points,
+                   const std::vector<std::vector<cv::vec2r> >& image_points_nrm,
+                   const std::vector<cv::vec3r>& model_points,
+                   cv::matrixr& A,
+                   std::vector<cv::matrixr>& K,
+                   cv::vectorr& k,
+                   bool fixed_aspect = false,
+                   bool no_skew = false,
+                   real_t tol = 1e-14);
 
 #endif /* end of include guard: OPTIMIZE_HPP_OBWEIHS0 */

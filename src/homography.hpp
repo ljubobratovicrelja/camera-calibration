@@ -8,7 +8,6 @@
 #include <optimization.hpp>
 
 
-
 /*
  * @brief Solve homography using Direct Linear Transformation (DLT) algorithm.
  *
