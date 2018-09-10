@@ -42,6 +42,7 @@ struct HomographyOptimizationData {
 };
 
 
+static
 int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* fjac, int ldfjac, int iflag) {
     assert(m % 2 == 0);
     if (iflag == 0) {
