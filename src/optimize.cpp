@@ -388,7 +388,6 @@ std::vector<real_t> setupX(cv::matrixr& A, std::vector<cv::matrixr>& K, cv::vect
         }
     }
 
-
     return x;
 }
 
@@ -465,9 +464,9 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
     }
 
     const auto data = (CalibrationOptimizationData*)(p);
-    const auto target_pts = data->target_pts;
-    const auto target_pts_nrm = data->target_pts_nrm;
-    const auto model_pts = data->model_pts;
+    const auto &target_pts = data->target_pts;
+    const auto &target_pts_nrm = data->target_pts_nrm;
+    const auto &model_pts = data->model_pts;
 	const auto board_count = data->board_count;
     const auto point_count = m / 2;
 	const auto model_point_count = model_pts.size();
@@ -477,6 +476,8 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
     reconstruct_Ak_from_X(x, a, b, c, u0, v0, k1, k2);
 
     if (iflag == 1) {
+		static real_t prev_err = 0.0;
+		real_t err = 0.0;
         // calculate residual
 		int ptId = 0;
         for (int i = 0; i < board_count; ++i) {
@@ -506,10 +507,15 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
 				const auto dx = u - t[j][0];
 				const auto dy = v - t[j][0];
 
-				fvec[ptId * 2 + 0] = dx*dx;
-				fvec[ptId * 2 + 1] = dy*dy;
+				fvec[ptId * 2 + 0] = sqrt(dx*dx);
+				fvec[ptId * 2 + 1] = sqrt(dy*dy);
+				err += fvec[ptId * 2 + 0];
+				err += fvec[ptId * 2 + 1];
 			}
         }
+		err /= m;
+		std::cout << err << ", " <<  prev_err - err << std::endl;
+		prev_err = err;
     } else if (iflag == 2) {
         // calculate jacobian
 		int ptId = 0;
@@ -626,7 +632,7 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
 				}
 
 				auto jac_u = fjac + ptId * 2 * n;
-				auto jac_v = fjac + (ptId * 2 + 1)*n;
+				auto jac_v = fjac + ptId * 2 * n + n;
 
 				// copy u_dA
 				jac_u[0] = u_dA[0];
@@ -684,7 +690,7 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r> >& image_points,
 
     std::vector<real_t> x = setupX(A, K, k);
 
-    int m = point_count * 2;
+    int m = board_count * point_count * 2;
     int n = x.size();
 
     int info = 0;
@@ -696,14 +702,16 @@ int optimize_calib(const std::vector<std::vector<cv::vec2r> >& image_points,
     std::vector<real_t> fvec(m), fjac(m * n);
     std::vector<real_t> qtf(n);
 
-    int maxfev = 100;
+    int maxfev = 1000;
 
     info = lmder(
         optimize_fcn, &data, m, n, x.data(),
         fvec.data(), fjac.data(), m,
-        1e-8, 1e-12, 0.0, maxfev, diag.data(),
+        0, 0, 0, maxfev, diag.data(),
         1, 100.0, 1, &nfev, &njev, ipvt.data(), qtf.data(),
         wa1.data(), wa2.data(), wa3.data(), wa4.data());
+
+	unwindX(x.data(), A, K, k);
 
     return info;
 }

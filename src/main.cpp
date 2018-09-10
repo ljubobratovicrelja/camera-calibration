@@ -642,14 +642,15 @@ int main(int argc, char** argv) {
 
     cv::vectorr k;
 
-    auto calc_reproject_for_set = [&](bool write_results) {
+    auto calc_reproject_for_set = [&](bool print_result, bool write_results) {
             real_t mean_err = 0.;
             for (unsigned i = 0; i < image_points_count; ++i) {
-                std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
-                auto err =
-                    calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], k);
+				if (print_result)
+					std::cout << "------------ K no." << i << " --------------\n" << Ks[i] << std::endl;
+                auto err = calc_reprojection(A, Ks[i], model_points, image_points_orig[i], image_points_nrm[i], image_points_proj[i], k);
                 mean_err += err;
-                std::cout << "Reprojection error: " << err << std::endl << std::endl;
+				if (print_result)
+					std::cout << "Reprojection error: " << err << std::endl << std::endl;
 
                 real_t scale = (im_w > 1000) ? 1000. / im_w : 1.;
                 auto reproj = draw_reprojection(image_points_orig[i], image_points_proj[i], im_w, im_h, scale);
@@ -664,20 +665,28 @@ int main(int argc, char** argv) {
                 #endif
             }
 
-            std::cout << "Mean reprojection error for all patterns: " << (mean_err / image_points_count) << std::endl;
+			if (print_result)
+				std::cout << "Mean reprojection error for all patterns: " << (mean_err / image_points_count) << std::endl;
         };
 
-    calc_reproject_for_set(false);
+    calc_reproject_for_set(false, false);
 
     k = compute_distortion(image_points_orig, image_points_nrm, image_points_proj, A)(0, 1);
+	cv::vectorr pre_opt_k = k.clone();
+
+    std::cout << "\n\n**********************************************************" << std::endl;
+	std::cout << "Calculated K: " << k << std::endl;
+    std::cout << "**********************************************************" << std::endl << std::endl;
+
+    calc_reproject_for_set(true, false);
 
     std::cout << "\n\n**********************************************************" << std::endl;
     std::cout << "Optimizing all..." << std::endl;
     std::cout << "**********************************************************" << std::endl << std::endl;
 
-    optimize_calib(image_points_orig, image_points_nrm, model_points, A, Ks, cv::vectorr {}, fixed_aspect, no_skew, ftol);
+    optimize_calib(image_points_orig, image_points_nrm, model_points, A, Ks, k, fixed_aspect, no_skew, ftol);
 
-    calc_reproject_for_set(true);
+    calc_reproject_for_set(true, true);
 
     write_results(A, k, Ks);
 
@@ -685,6 +694,7 @@ int main(int argc, char** argv) {
     std::cout << "Final Optimization Results:" << std::endl;
     std::cout << "A:\n" << A << std::endl;
     std::cout << "k:\n" << k << std::endl << std::endl;
+    std::cout << "pre-opt k:\n" << pre_opt_k << std::endl << std::endl;
     std::cout << "**********************************************************" << std::endl;
 
     std::cin.ignore();

@@ -66,6 +66,8 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
     real_t h33 = x[8];
 
     if (iflag == 1) {
+		static real_t prev_err = 0.0;
+		real_t err = 0.0;
         // calculate residual
         for (int i = 0; i < point_count; ++i) {
             const auto& t = target_pts[i];
@@ -77,9 +79,14 @@ int optimize_fcn(void* p, int m, int n, const real_t* x, real_t* fvec, real_t* f
             p_y /= p_w;
             const auto d_x = t[0] - p_x;
             const auto d_y = t[1] - p_y;
-            fvec[i * 2] = d_x * d_x;
-            fvec[i * 2 + 1] = d_y * d_y;
+            fvec[i * 2] = d_x*d_x;
+            fvec[i * 2 + 1] = d_y*d_y;
+			err += fvec[i * 2];
+			err += fvec[i * 2 + 1];
         }
+		err /= m;
+		std::cout << err << ", " << prev_err - err << std::endl;
+		prev_err = err;
     } else if (iflag == 2) {
         // calculate jacobian
         for (int i = 0; i < point_count; ++i) {
